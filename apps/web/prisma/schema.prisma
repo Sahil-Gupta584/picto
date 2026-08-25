@@ -1,4 +1,3 @@
-
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -6,6 +5,89 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+model MaintainerRepo {
+  id              String   @id @default(cuid())
+  owner           String
+  name            String
+  fullName        String   @unique
+  webhookUrl      String
+  webhookId       Int?
+  status          String   @default("active")
+  sandboxProvider String   @default("TrueForge Harness Sandbox")
+  autoFixEnabled  Boolean  @default(true)
+  connectedAt     DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  workflows MaintainerWorkflow[]
+
+  @@map("maintainer_repo")
+}
+
+model MaintainerWorkflow {
+  id                 String   @id @default(cuid())
+  issueUrl           String
+  issueNumber        Int
+  repoFullName       String
+  title              String
+  body               String
+  status             String   @default("investigating") // investigating | awaiting_approval | merged | rejected
+  state              String   @default("open")
+  author             String   @default("user")
+  rootCause          String?
+  affectedFiles      Json?
+  recommendation     String?
+  riskLevel          String?  @default("low")
+  prNumber           Int?
+  branch             String?
+  diff               String?
+  prSummary          String?
+  testLog            String?
+  testPassed         Boolean  @default(false)
+  prDecisionReasoning String?
+  executionMode      String?  @default("DIRECT")
+  prCreated          Boolean  @default(false)
+  trueforgeSessionId String?
+  toolCallId         String?
+  threadId           String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  repo   MaintainerRepo?   @relation(fields: [repoFullName], references: [fullName])
+  events MaintainerEvent[]
+
+  @@index([repoFullName])
+  @@map("maintainer_workflow")
+}
+
+model MaintainerEvent {
+  id         String             @id @default(cuid())
+  workflowId String
+  workflow   MaintainerWorkflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  type       String             // repo_connected | issue_triaged | sandbox_test_passed | pr_created | approval_requested | pr_merged
+  title      String
+  detail     String
+  timestamp  DateTime           @default(now())
+
+  @@index([workflowId])
+  @@map("maintainer_event")
+}
+
+model MaintainerSettings {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  geminiApiKey     String?
+  anthropicApiKey  String?
+  openaiApiKey     String?
+  githubToken      String?
+  selectedModel    String   @default("google/gemini-3.1-flash-lite")
+  trueforgeBaseUrl String   @default("http://localhost:8790")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  @@map("maintainer_settings")
 }
 
 model Todo {
@@ -22,37 +104,38 @@ enum SubscriptionStatus {
 }
 
 model Subscription {
-  id                    String             @id @default(cuid())
-  userId                String
-  user                  User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  dodoSubscriptionId    String             @unique
-  dodoCustomerId        String?
-  productId             String
-  status                SubscriptionStatus @default(active)
-  planId                String             @default("starter") // 'starter' | 'pro' | 'team'
-  billingInterval       String             @default("monthly") // 'monthly' | 'annual'
-  currentPeriodEnd      DateTime?
-  cancelAtNextBilling   Boolean            @default(false)
-  trialEndsAt           DateTime?
-  createdAt             DateTime           @default(now())
-  updatedAt             DateTime           @updatedAt
+  id                  String             @id @default(cuid())
+  userId              String
+  user                User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  dodoSubscriptionId  String             @unique
+  dodoCustomerId      String?
+  productId           String
+  status              SubscriptionStatus @default(active)
+  planId              String             @default("starter")
+  billingInterval     String             @default("monthly")
+  currentPeriodEnd    DateTime?
+  cancelAtNextBilling Boolean            @default(false)
+  trialEndsAt         DateTime?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
   @@index([userId])
   @@map("subscription")
 }
 
 model User {
-  id            String    @id
-  name          String
-  email         String
-  emailVerified Boolean   @default(false)
-  image         String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  sessions      Session[]
-  accounts      Account[]
-  subscriptions Subscription[]
-  forms         Form[]
+  id                 String              @id
+  name               String
+  email              String
+  emailVerified      Boolean             @default(false)
+  image              String?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  sessions           Session[]
+  accounts           Account[]
+  subscriptions      Subscription[]
+  forms              Form[]
+  maintainerSettings MaintainerSettings?
 
   @@unique([email])
   @@map("user")
@@ -114,6 +197,7 @@ model Account {
   refreshTokenExpiresAt DateTime?
   scope                 String?
   password              String?
+  issuer                String?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 

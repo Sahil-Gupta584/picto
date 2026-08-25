@@ -14,6 +14,13 @@ export const env = createEnv({
     DODO_PAYMENTS_ENVIRONMENT: z.enum(['test_mode', 'live_mode']).default('test_mode'),
     SENTRY_AUTH_TOKEN: z.string().min(1).optional(),
     NODE_ENV: z.enum(['development', 'production', 'test']).optional(),
+    DEFAULT_LLM_MODEL: z.string().default('google/gemini-3.1-flash-lite'),
+    TRUEFORGE_BASE_URL: z.string().default('http://localhost:8790'),
+    TRUEFORGE_TOKEN: z.string().optional(),
+    GEMINI_API_KEY: z.string().optional(),
+    ANTHROPIC_API_KEY: z.string().optional(),
+    OPENAI_API_KEY: z.string().optional(),
+    GITHUB_TOKEN: z.string().optional(),
   },
 
   clientPrefix: 'VITE_',
