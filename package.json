@@ -1,0 +1,25 @@
+{
+  "name": "maintainer",
+  "private": true,
+  "packageManager": "npm@11.6.1",
+  "scripts": {
+    "postinstall": "cd apps/web && npx prisma generate",
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "check-types": "turbo run check-types"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6",
+    "turbo": "^2.10.11",
+    "typescript": "7.0.2"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ]
+}
