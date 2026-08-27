@@ -593,7 +593,7 @@ ${params.body}`;
 
         console.log(`⏳ [AI Orchestrator] Consuming Supervisor turn stream with auto-resume...`);
         let supervisorResponse = '';
-        await this.streamTurnWithAutoResume(
+        const supervisorTurnResult = await this.streamTurnWithAutoResume(
           session.id,
           supervisorPrompt,
           (event) => {
@@ -603,8 +603,12 @@ ${params.body}`;
             if (event.type === 'model.message' && typeof event.content === 'string') {
               supervisorResponse = event.content;
             }
+            if (event.type === 'turn.done' && event.state?.output?.content && typeof event.state.output.content === 'string') {
+              supervisorResponse = event.state.output.content;
+            }
           }
         );
+        supervisorResponse = supervisorTurnResult.accumulatedText || supervisorResponse;
 
         console.log('ℹ️ [Supervisor Triager] Raw Response:', supervisorResponse);
 
@@ -911,6 +915,9 @@ Step 5: Request maintainer approval before final merge!`;
             accumulatedText = event.content;
           }
           if (event.type === 'turn.done') {
+            if (event.state?.output?.content && typeof event.state.output.content === 'string') {
+              accumulatedText = event.state.output.content;
+            }
             complete = true;
           }
         }
