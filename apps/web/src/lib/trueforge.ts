@@ -105,19 +105,36 @@ export class TrueForgeMaintainerService {
         }
 
         // 1. Run clone commands inside the sandbox directory
-        const cloneCmd = isWindows
-          ? `wsl sh -c "cd ${sandboxBaseDir}/* && git init && git remote add origin ${gitUrl} && git fetch && (git checkout -f main || git checkout -f master)"`
-          : `cd ${sandboxBaseDir}/* && git init && git remote add origin ${gitUrl} && git fetch && (git checkout -f main || git checkout -f master)`;
-        execSync(cloneCmd, { stdio: 'ignore' });
+        const cloneScript = `
+TARGET=$(ls -d "${sandboxBaseDir}"/*/ 2>/dev/null | head -n1)
+if [ -n "$TARGET" ] && [ -d "$TARGET" ]; then
+  cd "$TARGET"
+  if [ ! -d ".git" ]; then
+    git init && git remote add origin "${gitUrl}" && git fetch origin && (git checkout -f main || git checkout -f master || git checkout -f develop)
+  fi
+fi
+`;
+        if (isWindows) {
+          execSync('wsl sh', { input: cloneScript, stdio: 'ignore' });
+        } else {
+          execSync('sh', { input: cloneScript, stdio: 'ignore' });
+        }
         console.log(`✅ [AI Orchestrator] Repository successfully cloned/checked out in sandbox!`);
         
         // 2. Write issue.md if content is provided
         if (params.issueFileContent) {
           const base64Content = Buffer.from(params.issueFileContent).toString('base64');
-          const writeCmd = isWindows
-            ? `wsl sh -c "echo '${base64Content}' | base64 -d > ${sandboxBaseDir}/*/issue.md"`
-            : `echo '${base64Content}' | base64 -d > ${sandboxBaseDir}/*/issue.md`;
-          execSync(writeCmd, { stdio: 'ignore' });
+          const writeScript = `
+TARGET=$(ls -d "${sandboxBaseDir}"/*/ 2>/dev/null | head -n1)
+if [ -n "$TARGET" ] && [ -d "$TARGET" ]; then
+  printf '%s' "${base64Content}" | base64 -d > "$TARGET/issue.md"
+fi
+`;
+          if (isWindows) {
+            execSync('wsl sh', { input: writeScript, stdio: 'ignore' });
+          } else {
+            execSync('sh', { input: writeScript, stdio: 'ignore' });
+          }
           console.log(`✅ [AI Orchestrator] issue.md successfully created inside sandbox!`);
         }
       } catch (err: any) {
