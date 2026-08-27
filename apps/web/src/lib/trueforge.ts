@@ -82,25 +82,32 @@ export class TrueForgeMaintainerService {
 
         console.log(`🤖 [AI Orchestrator] Preparing local sandbox for session ${params.sessionId} at ${sandboxBaseDir}...`);
         
-        // Wait/poll for the directory to be created by the server (max 10 retries, 500ms delay)
+        // Wait/poll for the directory to be created by the server (max 30 retries, 1000ms delay)
         let sandboxExists = false;
-        const checkCmd = isWindows
-          ? `wsl sh -c "ls ${sandboxBaseDir}/*"`
-          : `ls ${sandboxBaseDir}/*`;
-          
-        for (let i = 0; i < 10; i++) {
+        const checkScript = `
+TARGET=$(ls -d "${sandboxBaseDir}"/*/ 2>/dev/null | head -n1)
+if [ -n "$TARGET" ] && [ -d "$TARGET" ]; then
+  exit 0
+else
+  exit 1
+fi
+`;
+        for (let i = 0; i < 30; i++) {
           try {
-            execSync(checkCmd, { stdio: 'ignore' });
+            if (isWindows) {
+              execSync('wsl sh', { input: checkScript, stdio: 'ignore' });
+            } else {
+              execSync('sh', { input: checkScript, stdio: 'ignore' });
+            }
             sandboxExists = true;
             break;
           } catch (e) {
-            // Wait 500ms natively without spawning shell commands
-            await new Promise((resolve) => setTimeout(resolve, 500));
+            await new Promise((resolve) => setTimeout(resolve, 1000));
           }
         }
 
         if (!sandboxExists) {
-          console.error(`❌ [AI Orchestrator] Sandbox directory was not created within 5 seconds for session ${params.sessionId}`);
+          console.error(`❌ [AI Orchestrator] Sandbox directory was not created within 30 seconds for session ${params.sessionId}`);
           return;
         }
 
