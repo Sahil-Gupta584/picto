@@ -48,6 +48,8 @@ model MaintainerWorkflow {
   prDecisionReasoning String?
   executionMode      String?  @default("DIRECT")
   prCreated          Boolean  @default(false)
+  directPr           Boolean  @default(false)
+  directPrReasoning  String?
   trueforgeSessionId String?
   toolCallId         String?
   threadId           String?

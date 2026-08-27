@@ -1,7 +1,7 @@
 import { os } from '@orpc/server'
 import { z } from 'zod'
 import { prisma } from '#/db'
-import { githubService } from '#/lib/github'
+import { githubService, buildConventionalTitle } from '#/lib/github'
 import { trueforge } from '#/lib/trueforge'
 
 // Base context interface matching ORPCContext
@@ -532,35 +532,56 @@ export const approvePrCreation = authed
     if (!workflow) {
       throw new Error(`Workflow ID ${input.workflowId} not found`)
     }
+    if (!workflow.trueforgeSessionId) {
+      throw new Error('Workflow has no TrueForge session; nothing to publish.')
+    }
 
     const [owner, repoName] = workflow.repoFullName.split('/')
     const userSettings = await getUserSettings(context.user.id)
-    const titleSlug = workflow.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20).replace(/-+$/g, '');
-    const branchName = `fix/issue-${workflow.issueNumber}-${titleSlug || 'fix'}`
+    const token = userSettings.githubToken || undefined
+
+    const titleSlug = workflow.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20).replace(/-+$/g, '')
+    const desiredBranch = `fix/issue-${workflow.issueNumber}-${titleSlug || 'fix'}`
+
+    // Publish the agent's own git history from the sandbox (commits included) to GitHub.
+    const published = await trueforge.publishSandboxBranch({
+      sessionId: workflow.trueforgeSessionId,
+      repoFullName: workflow.repoFullName,
+      desiredBranch,
+      token,
+      issueNumber: workflow.issueNumber,
+    })
+
+    if (!published.ok) {
+      throw new Error(`Failed to publish sandbox branch to GitHub: ${published.error}`)
+    }
 
     const createdPr = await githubService.createPullRequestOnGitHub(
       owner,
       repoName,
       {
-        title: `fix: resolve issue #${workflow.issueNumber} - ${workflow.title}`,
-        body: `### Autonomous Maintainer Investigation & Fix\n\n**Issue**: #${workflow.issueNumber} (${workflow.title})\n\n**Proposed Fix Approved by Maintainer**: Created branch \`${branchName}\`.\n\n---\n*Created automatically by Autonomous Maintainer via TrueForge Agent Harness.*`,
-        head: branchName,
+        title: buildConventionalTitle(published.lastCommitMessage || workflow.title, workflow.issueNumber),
+        body: `### Autonomous Maintainer Investigation & Fix\n\n**Issue**: #${workflow.issueNumber} (${workflow.title})\n\n**Proposed Fix Approved by Maintainer**: Published agent branch \`${published.branch}\`.\n\n---\n*Created automatically by Autonomous Maintainer via TrueForge Agent Harness.*`,
+        head: published.branch,
       },
-      userSettings.githubToken || undefined
+      token
     )
 
-    const prNumber = createdPr?.number || (workflow.issueNumber + 100)
+    if (!createdPr.success) {
+      throw new Error(`Failed to create GitHub Pull Request: ${createdPr.error}`)
+    }
 
     const updated = await prisma.maintainerWorkflow.update({
       where: { id: workflow.id },
       data: {
         status: 'awaiting_approval',
-        prNumber: prNumber,
-        branch: branchName,
+        prNumber: createdPr.number ?? null,
+        prCreated: true,
+        branch: published.branch,
       },
     })
 
-    return { success: true, workflow: updated, prNumber }
+    return { success: true, workflow: updated, prNumber: createdPr.number ?? null }
   })
 
 export const approvePR = authed

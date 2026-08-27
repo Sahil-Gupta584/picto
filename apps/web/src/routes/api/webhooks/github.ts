@@ -52,8 +52,8 @@ async function handlePost({ request }: { request: Request }) {
 
       console.log(`🚀 Matched connected repo '${repoFullName}'! Initiating AI Orchestrator for Issue #${issue.number}...`);
 
-      // 3. Delegate to Single-Prompt AI Maintainer Orchestrator
-      const result = await trueforge.runAutonomousMaintainerOrchestrator({
+      // 3. Delegate to Single-Prompt AI Maintainer Orchestrator asynchronously in background
+      trueforge.runAutonomousMaintainerOrchestrator({
         issueNumber: issue.number,
         issueUrl: issue.html_url,
         repoFullName: configuredRepo.fullName,
@@ -62,19 +62,16 @@ async function handlePost({ request }: { request: Request }) {
         author: issue.user?.login || "user",
         githubToken,
         modelName: userSettings?.selectedModel,
-      });
+      }).catch(err => console.error("❌ Error running AI Maintainer Orchestrator in background:", err));
 
       return new Response(
         JSON.stringify({
           success: true,
           action: payload.action,
           matchedRepo: configuredRepo.fullName,
-          workflowId: result.workflow.id,
-          trueforgeSessionId: result.sessionId,
-          prNumber: result.prNum,
-          triage: result.triage,
+          message: "AI Maintainer Orchestrator initiated in background.",
         }),
-        { status: 200, headers: { "Content-Type": "application/json" } }
+        { status: 202, headers: { "Content-Type": "application/json" } }
       );
     }
 

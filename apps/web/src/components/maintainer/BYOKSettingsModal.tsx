@@ -102,6 +102,8 @@ export function BYOKSettingsModal({ isOpen, onClose, initialSettings, onSuccess 
               <option value="google-gemini/gemini-3.1-flash-lite">Gemini 3.1 Flash Lite (Recommended)</option>
               <option value="google-gemini/gemini-3-1-pro-preview">Gemini 3.1 Pro Preview</option>
               <option value="google-gemini/gemini-3-6-flash">Gemini 3.6 Flash</option>
+              <option value="google-gemini/gemini-1.5-flash">Gemini 1.5 Flash (Generous Free Tier)</option>
+              <option value="google-gemini/gemini-1.5-pro">Gemini 1.5 Pro</option>
               <option value="anthropic/claude-sonnet-4-6">Anthropic Claude Sonnet 4.6</option>
               <option value="openai/gpt-4o">OpenAI GPT-4o</option>
             </select>
