@@ -235,7 +235,6 @@ echo "@last_msg=$LASTMSG"`
       );
       const read = (key: string) => inspectOut.match(new RegExp(`^@${key}=(.*)$`, 'm'))?.[1] ?? '';
       const currentBranch = read('current_branch').trim();
-      const baseBranch = read('base_branch').trim() || 'main';
       const commitsAhead = parseInt(read('commits_ahead').trim() || '0', 10);
       const dirtyCount = parseInt(read('dirty_count').trim() || '0', 10);
       const lastCommitMessage = read('last_msg').trim();
@@ -553,6 +552,15 @@ make decision what to do of this issue. and return a proper json accordnigly`;
           data: { trueforgeSessionId: session.id },
         });
 
+        const supervisorIssueContent = `# GitHub Issue #${params.issueNumber}
+
+**Repository**: ${params.repoFullName}
+**Title**: ${params.title}
+**Author**: ${params.author}
+
+## Description
+${params.body}`;
+
         this.prepareSandbox({
           repoFullName: params.repoFullName,
           sessionId: session.id,
@@ -697,6 +705,28 @@ Implementation Plan:
 ${Array.isArray(subAgentPlanObj?.executionSteps) ? subAgentPlanObj.executionSteps.join('\n') : '1. Investigate codebase\n2. Implement fix'}
 
 Note: The repository is already cloned and fully checked out in your current working directory. Do NOT run git clone; work directly with the files in the root.`;
+      const devIssueContent = `# GitHub Issue #${params.issueNumber}
+
+**Repository**: ${params.repoFullName}
+**Title**: ${params.title}
+**Author**: ${params.author}
+
+## Description
+${params.body}
+
+---
+
+## Developer Implementation Plan
+
+### Issue Context
+${subAgentPlanObj?.issueContext || params.title}
+
+### Analysis & Findings
+${subAgentPlanObj?.analysisFindings || reasoning}
+
+### Execution Steps
+${Array.isArray(subAgentPlanObj?.executionSteps) ? subAgentPlanObj.executionSteps.join('\n') : '1. Investigate codebase\n2. Implement fix'}`;
+
       this.prepareSandbox({
         repoFullName: params.repoFullName,
         sessionId: devSession.id,
@@ -956,18 +986,20 @@ Step 5: Request maintainer approval before final merge!`;
       );
 
       let diff = '';
-      let sessionId = '';
       let changedFiles: string[] = [];
       let workflow: any = null;
+      let activeSessionId = sessionId;
       try {
         workflow = await prisma.maintainerWorkflow.findUnique({
           where: { id: workflowId },
         });
-        sessionId = workflow?.trueforgeSessionId || '';
-        if (sessionId) {
-          changedFiles = await this.getSandboxChangedFiles(sessionId);
+        if (!activeSessionId) {
+          activeSessionId = workflow?.trueforgeSessionId || '';
+        }
+        if (activeSessionId) {
+          changedFiles = await this.getSandboxChangedFiles(activeSessionId);
           diff = this.runInSandbox(
-            sessionId,
+            activeSessionId,
             `B=main; git rev-parse --verify -q refs/heads/main >/dev/null 2>&1 || B=master
 if git rev-parse -q --verify "refs/remotes/origin/$B" >/dev/null 2>&1; then UP="origin/$B"; else UP="$B"; fi
 git diff "$UP..HEAD"`
@@ -985,7 +1017,7 @@ git diff "$UP..HEAD"`
       let publishNote = '';
       let publishedBranch = '';
 
-      if (workflow?.directPr && !workflow.prCreated && sessionId) {
+      if (workflow?.directPr && !workflow.prCreated && activeSessionId) {
         console.log(`🚀 [AI Orchestrator] directPr is enabled! Publishing agent branch to GitHub...`);
 
         if (!substantiveFiles.length) {
