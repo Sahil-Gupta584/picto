@@ -59,12 +59,15 @@ export class TrueForgeMaintainerService {
   private prepareSandbox(params: {
     repoFullName: string;
     sessionId: string;
+    token?: string;
     issueFileContent?: string;
   }) {
     // Run asynchronously to allow stream connection to initiate
     setTimeout(async () => {
       try {
-        const gitUrl = `https://github.com/${params.repoFullName}.git`;
+        const gitUrl = params.token
+          ? `https://x-access-token:${encodeURIComponent(params.token)}@github.com/${params.repoFullName}.git`
+          : `https://github.com/${params.repoFullName}.git`;
         const isWindows = process.platform === 'win32';
         
         let sandboxBaseDir = '';
@@ -117,7 +120,11 @@ TARGET=$(ls -d "${sandboxBaseDir}"/*/ 2>/dev/null | head -n1)
 if [ -n "$TARGET" ] && [ -d "$TARGET" ]; then
   cd "$TARGET"
   if [ ! -d ".git" ]; then
-    git init && git remote add origin "${gitUrl}" && git fetch origin && (git checkout -f main || git checkout -f master || git checkout -f develop)
+    git init
+    git remote remove origin 2>/dev/null || true
+    git remote add origin "${gitUrl}"
+    git fetch origin --depth=50 || git fetch origin
+    git checkout -f -B main origin/main 2>/dev/null || git checkout -f -B master origin/master 2>/dev/null || git checkout -f main 2>/dev/null || true
   fi
 fi
 `;
@@ -588,6 +595,7 @@ ${params.body}`;
         this.prepareSandbox({
           repoFullName: params.repoFullName,
           sessionId: session.id,
+          token: params.githubToken,
           issueFileContent: supervisorIssueContent,
         });
 
@@ -758,6 +766,7 @@ ${Array.isArray(subAgentPlanObj?.executionSteps) ? subAgentPlanObj.executionStep
       this.prepareSandbox({
         repoFullName: params.repoFullName,
         sessionId: devSession.id,
+        token: params.githubToken,
         issueFileContent: devIssueContent,
       });
 
