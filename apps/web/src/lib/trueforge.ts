@@ -1,6 +1,7 @@
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 import { prisma } from '#/db';
 import { githubService, buildConventionalTitle } from '#/lib/github';
+import { buildSupervisorPrompt, buildDeveloperPrompt, buildSetupPrompt } from '#/lib/prompts';
 import { execSync } from 'child_process';
 import os from 'os';
 
@@ -28,169 +29,6 @@ export interface TrueForgeSession {
   createdAt: string;
 }
 
-// ─── Prompt Builders ─────────────────────────────────────────────────────────
-
-/** Supervisor prompt — triage ONLY. Do NOT implement anything. */
-function buildSupervisorPrompt(repoFullName: string): string {
-  return `You are a Triage Agent. Your ONLY job is to classify the GitHub issue.
-
-## Instructions
-1. Read issue.md in your working directory for the full issue details
-2. The repository is ${repoFullName}
-3. Explore the codebase using your tools (list_dir, read_file, grep_search) to understand context
-4. Classify the issue, assess risk, and return a JSON decision
-
-## Step 1: Check if Already Implemented
-Before classifying, check if the requested change already exists:
-- Search for the feature in the codebase
-- Check if similar functionality exists
-- Check existing issues/PRs for duplicate requests
-- If already implemented → decision: reject with reasoning
-
-## Step 2: Classify the Issue
-
-### Bug Fix (category: bug)
-- Clear error or unexpected behavior
-- Steps to reproduce provided
-- Affects existing functionality
-- Can be fixed with code changes
-
-### Feature Request (category: feature_request)
-- New functionality or improvement suggestion
-- Can be fix, clarify, or reject depending on risk (see Step 3)
-
-### Question/Support (category: question)
-- User needs help using the project
-- Not a bug or feature request
-
-### Duplicate (category: duplicate)
-- Similar issue already exists
-- Set duplicateOf to the original issue number
-
-### Spam/Invalid (category: spam)
-- Gibberish, promotional content, or unrelated to the project
-
-## Step 3: Worthiness Check — Should We Even Bother?
-Before assessing risk, ask: Is this issue worth acting on?
-
-### REJECT (not worth acting on):
-- Spam, gibberish, or promotional content
-- Trivial issues that waste maintainer time (e.g., "fix a typo in a comment nobody reads")
-- Issues that are not actionable (vague complaints, no clear ask)
-- Issues that are clearly out of scope for this project
-- Feature requests that are already implemented (check codebase!)
-- Duplicates of existing issues
-- Issues with low confidence and no clear benefit
-
-### CONTINUE (worth acting on):
-- Clear bugs with reproduction steps
-- Feature requests that add real value
-- Documentation improvements that help users
-- Issues that solve a real problem
-
-If the issue is NOT worth acting on → decision: reject, directPr: false
-If the issue IS worth acting on → proceed to Step 4
-
-## Step 4: Risk Assessment & Decision
-Assess the risk level of the change:
-
-### Low Risk → decision: fix, directPr: true
-- Documentation changes that help users (README, CONTRIBUTING, examples)
-- Bug fixes in non-critical code
-- Adding tests
-- Refactoring (no behavior change)
-- Minor feature additions
-- Easy to revert if wrong
-
-### Medium Risk → decision: fix, directPr: false
-- Bug fixes in critical code
-- API changes
-- Performance improvements
-- Needs human review before merge
-
-### High Risk → decision: clarify
-- Core logic changes
-- Authentication/authorization
-- Database schema changes
-- API breaking changes
-- Security-related changes
-- Major feature additions
-- Requires maintainer discussion first
-
-### Already Implemented → decision: reject
-- Feature already exists in codebase
-- Duplicate of existing issue
-- Not needed based on codebase analysis
-
-## Output Format
-Return ONLY a JSON object (no markdown wrappers, no explanation before or after):
-
-{
-  "category": "bug" | "feature_request" | "question" | "duplicate" | "spam",
-  "decision": "fix" | "clarify" | "reject",
-  "reasoning": "Why this decision. Be specific about what you found.",
-  "confidence": "high" | "medium" | "low",
-  "duplicateOf": "issue number or null",
-  "directPr": true | false,
-  "directPrReasoning": "true = low-risk, safe to auto-merge. false = needs human review.",
-  "plan": {
-    "context": "What the issue is solving.",
-    "findings": "What you discovered in the codebase. Be specific.",
-    "steps": ["1. Edit [file]...", "2. Run [test]..."]
-  },
-  "replyComment": "Comment for CLARIFY/REJECT."
-}
-
-## RULES
-- You are ONLY classifying. Do NOT implement anything.
-- Do NOT edit files. Do NOT create commits.
-- Do NOT run tests. Do NOT modify code.
-- Be decisive — don't ask permission for trivial changes.
-- CRITICAL: Not every issue deserves a PR. Spam, duplicates, trivial issues, and vague complaints should be REJECTED.
-- Only create PRs for issues that add real value to the project.
-- If it's a clear bug with reproduction steps → fix it.
-- If it's a feature request that adds real value → clarify with maintainer first.
-- If it's spam, duplicate, or trivial → reject it.
-- Return ONLY the JSON. Nothing else.`;
-}
-
-/** Developer prompt — implementation ONLY. Do NOT triage or classify. */
-function buildDeveloperPrompt(params: {
-  issueNumber: number;
-  title: string;
-  repoFullName: string;
-  plan: { context: string; findings: string; steps: string[] };
-}): string {
-  return `You are a Developer Agent. Your ONLY job is to implement the fix.
-
-## The Issue
-Issue #${params.issueNumber}: ${params.title}
-Repository: ${params.repoFullName}
-
-## Implementation Plan (from Triage Agent)
-Context: ${params.plan.context}
-Findings: ${params.plan.findings}
-
-Steps to implement:
-${params.plan.steps.join('\n')}
-
-## Instructions
-1. Read issue.md for full context
-2. Implement the fix according to the plan above
-3. Run 'git diff' to review ALL your changes before committing
-4. If any change is unnecessary or unrelated, revert it with 'git checkout -- <file>'
-5. Only commit files that directly address the issue
-6. Do NOT commit lockfiles, build artifacts, or unrelated changes
-7. Verify changes with test suites if available
-8. Commit with a descriptive message (e.g., "fix: resolve <what> (<where>)")
-9. Do NOT push to remote or create PRs
-
-## RULES
-- You are ONLY implementing. Do NOT classify or triage.
-- Do NOT return JSON. Do NOT analyze the issue type.
-- Follow the plan exactly. Make minimal, precise edits.
-- The repo is already cloned — work with files in the root.`;
-}
 
 // ─── Triage Decision Type ─────────────────────────────────────────────────────
 
@@ -340,34 +178,8 @@ export class TrueForgeMaintainerService {
       ? `https://x-access-token:${encodeURIComponent(params.token)}@github.com/${params.repoFullName}.git`
       : `https://github.com/${params.repoFullName}.git`;
 
-    // Build the setup instructions the agent will execute inside bwrap via its exec tool
-    const cloneInstructions = [
-      'Run the following shell commands exactly, one at a time, to set up the repository:',
-      '1. `unset HTTP_PROXY https_PROXY http_proxy https_proxy ALL_PROXY all_proxy NO_PROXY no_proxy`',
-      '2. `git init`',
-      '3. `git remote add origin ' + gitUrl + '`',
-      '4. `git fetch origin --depth=50` (if this fails, try `git fetch origin`)',
-      '5. `git checkout -f -B main origin/main` (if this fails, try `git checkout -f -B master origin/master`)',
-      '6. Verify with `ls` — you should see the repository source files and a .git directory.',
-      '',
-      'IMPORTANT: Do NOT skip any step. Execute them in order. Report the output of each step.',
-    ].join('\n');
-
-    const issueInstructions = params.issueFileContent
-      ? `
-
-After cloning, write the following content to a file called issue.md in the current working directory:
-
----
-${params.issueFileContent}
----
-
-Use the write_file tool to create this file. Verify it exists with ls.`
-      : '';
-
-    const setupPrompt = cloneInstructions + issueInstructions + '\n\nIMPORTANT: After completing these steps, respond with exactly: "Setup complete." Do NOT analyze the issue, do NOT return any JSON, do NOT investigate the codebase. Just confirm setup is done and stop.';
-
     console.log(`🤖 [AI Orchestrator] Sending setup turn to session ${params.sessionId} to clone repo inside sandbox...`);
+    const setupPrompt = buildSetupPrompt({ gitUrl, issueFileContent: params.issueFileContent });
 
     try {
       // Wait for the sandbox to be created by polling (max 30 retries, 1s delay)
