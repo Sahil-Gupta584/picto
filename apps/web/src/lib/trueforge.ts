@@ -70,21 +70,42 @@ Before classifying, check if the requested change already exists:
 ### Spam/Invalid (category: spam)
 - Gibberish, promotional content, or unrelated to the project
 
-## Step 3: Risk Assessment & Decision
+## Step 3: Worthiness Check — Should We Even Bother?
+Before assessing risk, ask: Is this issue worth acting on?
+
+### REJECT (not worth acting on):
+- Spam, gibberish, or promotional content
+- Trivial issues that waste maintainer time (e.g., "fix a typo in a comment nobody reads")
+- Issues that are not actionable (vague complaints, no clear ask)
+- Issues that are clearly out of scope for this project
+- Feature requests that are already implemented (check codebase!)
+- Duplicates of existing issues
+- Issues with low confidence and no clear benefit
+
+### CONTINUE (worth acting on):
+- Clear bugs with reproduction steps
+- Feature requests that add real value
+- Documentation improvements that help users
+- Issues that solve a real problem
+
+If the issue is NOT worth acting on → decision: reject, directPr: false
+If the issue IS worth acting on → proceed to Step 4
+
+## Step 4: Risk Assessment & Decision
 Assess the risk level of the change:
 
 ### Low Risk → decision: fix, directPr: true
-- Documentation changes (README, CONTRIBUTING, comments)
-- Formatting, typos, minor text updates
-- Adding examples or clarifications
-- No code logic changes
-- Easy to revert if wrong
-
-### Medium Risk → decision: fix, directPr: false
+- Documentation changes that help users (README, CONTRIBUTING, examples)
 - Bug fixes in non-critical code
 - Adding tests
 - Refactoring (no behavior change)
 - Minor feature additions
+- Easy to revert if wrong
+
+### Medium Risk → decision: fix, directPr: false
+- Bug fixes in critical code
+- API changes
+- Performance improvements
 - Needs human review before merge
 
 ### High Risk → decision: clarify
@@ -125,9 +146,11 @@ Return ONLY a JSON object (no markdown wrappers, no explanation before or after)
 - Do NOT edit files. Do NOT create commits.
 - Do NOT run tests. Do NOT modify code.
 - Be decisive — don't ask permission for trivial changes.
-- If it's a documentation typo, just fix it.
-- If it's a clear bug, just fix it.
-- Only ask permission (clarify) for high-risk changes.
+- CRITICAL: Not every issue deserves a PR. Spam, duplicates, trivial issues, and vague complaints should be REJECTED.
+- Only create PRs for issues that add real value to the project.
+- If it's a clear bug with reproduction steps → fix it.
+- If it's a feature request that adds real value → clarify with maintainer first.
+- If it's spam, duplicate, or trivial → reject it.
 - Return ONLY the JSON. Nothing else.`;
 }
 
