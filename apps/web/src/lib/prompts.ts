@@ -38,7 +38,7 @@ export function buildSupervisorPrompt(repoFullName: string): string {
 
 1. Read issue.md for the full issue details
 2. The repository is ${repoFullName}
-3. Before deciding, check if the feature already exists in the codebase (templates, configs, similar issues).
+3. Before deciding, explore the repository to check if the issue describes something that already exists — read CONTRIBUTING.md, list the .github/ directory, read any PR/issue templates, and grep for related patterns.
 4. If the issue describes something that already exists in the codebase, decision must be reject.
 5. Return ONLY a JSON object
 
@@ -89,18 +89,21 @@ ${params.plan.steps.join('\n')}
 
 ## Instructions
 1. Read issue.md for full context
-2. Implement the fix according to the plan above
-3. Run 'git diff' to review ALL your changes before committing
-4. If any change is unnecessary or unrelated, revert it with 'git checkout -- <file>'
-5. Only commit files that directly address the issue
-6. Do NOT commit lockfiles, build artifacts, or unrelated changes
-7. Verify changes with test suites if available
-8. Commit with a descriptive message (e.g., "fix: resolve <what> (<where>)")
-9. Do NOT push to remote or create PRs
+2. Read CONTRIBUTING.md and AGENTS.md for repo conventions (test layout, changeset, commit style). List .changeset/ if it exists.
+3. Read neighboring source/tests for patterns — e.g. if adding a status code, read the route file and its test to mirror style.
+4. Implement the fix according to the plan above — prefer helpers over inline checks, update docstrings, and update OpenAPI/route schemas if you add a status code.
+5. Run 'git diff' to review ALL your changes before committing
+6. If any change is unnecessary or unrelated, revert it with 'git checkout -- <file>'
+7. Only commit files that directly address the issue
+8. Do NOT commit lockfiles, build artifacts, or generated SDK/OpenAPI (see CONTRIBUTING.md)
+9. Verify with tests: run the relevant test file(s) you touched (e.g. pnpm test <file>) and ensure pnpm typecheck passes for changed packages
+10. If .changeset/ exists, add a patch changeset mirroring existing ones
+11. Commit with a descriptive message (e.g., "fix: resolve <what> (<where>)")
+12. Do NOT push to remote or create PRs
 
 RULES:
 - You are ONLY implementing. Do NOT classify or triage.
 - Do NOT return JSON. Do NOT analyze the issue type.
 - Follow the plan exactly. Make minimal, precise edits.
-- The repo is already cloned — work with files in the root.`;
+- The repo is already cloned — work with files in the root.
 }

@@ -733,6 +733,7 @@ Step 5: Request maintainer approval before final merge!`;
           input: [{ type: 'user.message', content: currentPrompt }],
         });
 
+        let rateLimitRetry = false;
         for await (const event of stream) {
           if (onEvent) {
             onEvent(event);
@@ -744,13 +745,38 @@ Step 5: Request maintainer approval before final merge!`;
             accumulatedText = event.content;
           }
           if (event.type === 'turn.done') {
-            if (event.state?.output?.content && typeof event.state.output.content === 'string') {
-              accumulatedText = event.state.output.content;
+            const s: any = event.state;
+            const isError = s?.status === 'error' || !!s?.error;
+            if (isError) {
+              const errorMsg = s?.message || s?.error?.message || JSON.stringify(s?.error || '') || String(s?.message || '');
+              const isRateLimit =
+                errorMsg.includes('429') ||
+                errorMsg.includes('Quota exceeded') ||
+                errorMsg.includes('rate-limits') ||
+                errorMsg.includes('limit: 15') ||
+                errorMsg.includes('Resource has been exhausted');
+              if (isRateLimit && attempt < maxResumeAttempts) {
+                attempt++;
+                const match = errorMsg.match(/retry in\s+([\d.]+)\s*s/i);
+                const waitSeconds = match ? Math.ceil(parseFloat(match[1])) + 2 : 16;
+                console.warn(
+                  `⏳ [Rate Limit] 429 hit (turn error). Waiting ${waitSeconds}s before prompting "continue" (Attempt ${attempt}/${maxResumeAttempts})...`
+                );
+                await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
+                currentPrompt = 'continue';
+                rateLimitRetry = true;
+                break;
+              }
+              throw new Error(errorMsg || 'Turn failed with error status');
+            }
+            if (s?.output?.content && typeof s.output.content === 'string') {
+              accumulatedText = s.output.content;
             }
             complete = true;
           }
         }
 
+        if (rateLimitRetry) continue;
         complete = true;
       } catch (err: any) {
         const errorMsg = err?.message || String(err);
