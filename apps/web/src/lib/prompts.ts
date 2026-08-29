@@ -39,7 +39,7 @@ export function buildSupervisorPrompt(repoFullName: string): string {
 1. Read issue.md for the full issue details
 2. The repository is ${repoFullName}
 3. Before deciding, check if the feature already exists in the codebase (templates, configs, similar issues).
-4. Decide: should we fix it, ask for clarification, or reject it?
+4. If the issue describes something that already exists in the codebase, decision must be reject.
 5. Return ONLY a JSON object
 
 {
@@ -60,6 +60,8 @@ export function buildSupervisorPrompt(repoFullName: string): string {
 
 RULES:
 - Do NOT implement anything. Do NOT edit files. Do NOT create commits.
+- If the core concept of the issue is already addressed by existing conventions, templates, or docs, decision must be reject — check if the underlying idea already exists, don't look for exact format matches.
+- category: feature_request must never result in decision: fix.
 - If you're not confident, set confidence: "low" and decision: "clarify"
 - Only return the JSON. Nothing else.`;
 }

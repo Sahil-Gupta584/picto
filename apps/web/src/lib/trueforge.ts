@@ -122,17 +122,20 @@ export class TrueForgeMaintainerService {
 
     if (decision.category === 'spam') {
       commentBody = decision.replyComment || `🤖 This issue has been identified as spam and has been closed.\n\n**Reason**: ${decision.reasoning}`;
-      await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+      const ok = await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+      if (!ok) throw new Error(`Failed to close spam issue #${params.issueNumber}`);
       console.log(`🔒 [AI Orchestrator] Spam issue #${params.issueNumber} closed automatically`);
       eventTitle = 'Issue rejected (spam)';
     } else if (decision.category === 'duplicate' && decision.duplicateOf) {
       commentBody = decision.replyComment || `🤖 This issue is a duplicate of #${decision.duplicateOf} and has been closed.\n\n**Reason**: ${decision.reasoning}`;
-      await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+      const ok = await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+      if (!ok) throw new Error(`Failed to close duplicate issue #${params.issueNumber}`);
       console.log(`🔒 [AI Orchestrator] Duplicate issue #${params.issueNumber} closed (duplicate of #${decision.duplicateOf})`);
       eventTitle = `Issue closed as duplicate of #${decision.duplicateOf}`;
     } else {
       commentBody = decision.replyComment || `🤖 Issue closed.\n\n**Reason**: ${decision.reasoning}`;
-      await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+      const ok = await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+      if (!ok) throw new Error(`Failed to close issue #${params.issueNumber}`);
       console.log(`🔒 [AI Orchestrator] Issue #${params.issueNumber} closed`);
       eventTitle = 'Issue rejected';
     }
@@ -155,7 +158,8 @@ export class TrueForgeMaintainerService {
   ): Promise<void> {
     const [owner, repoName] = params.repoFullName.split('/');
     const commentBody = decision.replyComment || `🤖 Clarification requested.\n\n**Reason**: ${decision.reasoning}`;
-    await githubService.addIssueComment(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+    const ok = await githubService.addIssueComment(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+    if (!ok) throw new Error(`Failed to post clarification comment on issue #${params.issueNumber}`);
 
     await prisma.maintainerWorkflow.update({
       where: { id: workflow.id },
