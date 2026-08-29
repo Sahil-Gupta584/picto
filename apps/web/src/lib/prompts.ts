@@ -38,7 +38,7 @@ export function buildSupervisorPrompt(repoFullName: string): string {
 
 1. Read issue.md for the full issue details
 2. The repository is ${repoFullName}
-3. Explore the codebase to understand context — is this a real bug, a feature request, spam, or already handled?
+3. Before deciding, check if the feature already exists in the codebase (templates, configs, similar issues).
 4. Decide: should we fix it, ask for clarification, or reject it?
 5. Return ONLY a JSON object
 
