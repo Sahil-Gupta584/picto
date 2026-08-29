@@ -199,6 +199,62 @@ export class GitHubService {
     }
   }
 
+  async closeIssue(owner: string, repo: string, issueNumber: number, comment: string, token?: string) {
+    try {
+      const octokit = this.getOctokit(token);
+      // Post closing comment first
+      if (comment) {
+        await octokit.rest.issues.createComment({
+          owner,
+          repo,
+          issue_number: issueNumber,
+          body: comment,
+        });
+      }
+      // Close the issue
+      await octokit.rest.issues.update({
+        owner,
+        repo,
+        issue_number: issueNumber,
+        state: 'closed',
+        state_reason: 'not_planned',
+      });
+      console.log(`🔒 Closed GitHub Issue #${issueNumber}`);
+      return true;
+    } catch (err) {
+      console.warn('closeIssue warning:', err);
+      return false;
+    }
+  }
+
+  async closePR(owner: string, repo: string, prNumber: number, comment: string, token?: string) {
+    try {
+      const octokit = this.getOctokit(token);
+      // Post closing comment first
+      if (comment) {
+        await octokit.rest.pulls.createReview({
+          owner,
+          repo,
+          pull_number: prNumber,
+          body: comment,
+          event: 'COMMENT',
+        });
+      }
+      // Close the PR
+      await octokit.rest.pulls.update({
+        owner,
+        repo,
+        pull_number: prNumber,
+        state: 'closed',
+      });
+      console.log(`🔒 Closed GitHub PR #${prNumber}`);
+      return true;
+    } catch (err) {
+      console.warn('closePR warning:', err);
+      return false;
+    }
+  }
+
   /**
    * Open a PR for an already-published head branch. The head branch (with its full git
    * history authored by the sandbox agent) must have been pushed beforehand via
@@ -383,6 +439,37 @@ export class GitHubService {
       return { success: true, message: data.message || 'Pull Request merged successfully' };
     } catch (err: any) {
       return { success: false, message: err?.message || String(err) };
+    }
+  }
+
+  async getFileContents(
+    owner: string,
+    repo: string,
+    path: string,
+    ref?: string,
+    token?: string
+  ): Promise<string | null> {
+    try {
+      const octokit = this.getOctokit(token);
+      const { data } = await octokit.rest.repos.getContent({
+        owner,
+        repo,
+        path,
+        ref: ref || 'HEAD',
+      });
+
+      if (Array.isArray(data)) {
+        return null; // It's a directory
+      }
+
+      if (data.type === 'file' && data.content) {
+        return Buffer.from(data.content, 'base64').toString('utf-8');
+      }
+
+      return null;
+    } catch (err) {
+      // File not found or other error
+      return null;
     }
   }
 

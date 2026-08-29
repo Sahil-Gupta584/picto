@@ -1,35 +1,8 @@
-import { os } from '@orpc/server'
 import { z } from 'zod'
 import { prisma } from '#/db'
 import { githubService, buildConventionalTitle } from '#/lib/github'
 import { trueforge } from '#/lib/trueforge'
-
-// Base context interface matching ORPCContext
-export interface Context {
-  headers: Headers | Record<string, string>
-  user?: {
-    id: string
-    name?: string
-    email?: string
-    image?: string
-  }
-}
-
-const pub = os.$context<Context>()
-
-// Middleware for authentication
-const authed = pub.use(async ({ context, next }) => {
-  if (!context.user) {
-    throw new Error('UNAUTHORIZED: User session required')
-  }
-  return next({
-    context: {
-      user: context.user,
-    },
-  })
-})
-
-const base = pub
+import { authed, base } from '#/orpc/middleware'
 
 // Authenticated health check procedure
 export const healthCheck = authed.handler(async ({ context }) => {

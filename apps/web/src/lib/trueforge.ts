@@ -42,6 +42,7 @@ export class TrueForgeMaintainerService {
   }
 
   normalizeModelName(raw?: string): string {
+    return 'google-gemini/gemini-3-5-flash-lite';
     if (!raw) return 'google-gemini/gemini-3-1-flash-lite';
     const lower = raw.toLowerCase();
     if (lower.includes('lite') || lower.includes('3.1-flash') || lower.includes('3-1-flash')) {
@@ -53,108 +54,104 @@ export class TrueForgeMaintainerService {
     if (lower.includes('pro') || lower.includes('preview') || lower.includes('3.1')) {
       return 'google-gemini/gemini-3-1-pro-preview';
     }
-    return 'google-gemini/gemini-3-1-flash-lite';
   }
 
-  private prepareSandbox(params: {
+  /**
+   * Send a setup turn inside the sandbox via the TrueForge SDK so that clone + file writes
+   * happen inside bwrap (where the agent can actually see them).
+   *
+   * Calling execSync from outside bwrap writes to the host filesystem, but bwrap's
+   * mount namespace makes those files invisible to the agent running inside. By sending
+   * a user.message turn, the agent's own `exec` tool runs inside bwrap and can see
+   * everything it creates.
+   */
+  private async prepareSandbox(params: {
     repoFullName: string;
     sessionId: string;
     token?: string;
     issueFileContent?: string;
-  }) {
-    // Run asynchronously to allow stream connection to initiate
-    setTimeout(async () => {
-      try {
-        const gitUrl = params.token
-          ? `https://x-access-token:${encodeURIComponent(params.token)}@github.com/${params.repoFullName}.git`
-          : `https://github.com/${params.repoFullName}.git`;
-        const isWindows = process.platform === 'win32';
-        
-        let sandboxBaseDir = '';
-        if (isWindows) {
-          // Get WSL home directory dynamically (fallback to /home/gjugn if WSL command fails)
-          let wslHome = '/home/gjugn';
-          try {
-            wslHome = execSync('wsl sh -c "echo \\$HOME"', { encoding: 'utf8' }).trim();
-          } catch (err) {}
-          sandboxBaseDir = `${wslHome}/.local/share/trueforge/sandboxes/${params.sessionId}`;
-        } else {
-          const home = process.env.HOME || os.homedir();
-          sandboxBaseDir = `${home}/.local/share/trueforge/sandboxes/${params.sessionId}`;
-        }
+  }): Promise<void> {
+    const gitUrl = params.token
+      ? `https://x-access-token:${encodeURIComponent(params.token)}@github.com/${params.repoFullName}.git`
+      : `https://github.com/${params.repoFullName}.git`;
 
-        console.log(`🤖 [AI Orchestrator] Preparing local sandbox for session ${params.sessionId} at ${sandboxBaseDir}...`);
-        
-        // Wait/poll for the directory to be created by the server (max 30 retries, 1000ms delay)
-        let sandboxExists = false;
-        const checkScript = `
-TARGET=$(ls -d "${sandboxBaseDir}"/*/ 2>/dev/null | head -n1)
-if [ -n "$TARGET" ] && [ -d "$TARGET" ]; then
-  exit 0
-else
-  exit 1
-fi
-`;
-        for (let i = 0; i < 30; i++) {
-          try {
-            if (isWindows) {
-              execSync('wsl sh', { input: checkScript, stdio: 'ignore' });
-            } else {
-              execSync('sh', { input: checkScript, stdio: 'ignore' });
-            }
-            sandboxExists = true;
-            break;
-          } catch (e) {
-            await new Promise((resolve) => setTimeout(resolve, 1000));
-          }
-        }
+    // Build the setup instructions the agent will execute inside bwrap via its exec tool
+    const cloneInstructions = [
+      'Run the following shell commands exactly, one at a time, to set up the repository:',
+      '1. `unset HTTP_PROXY https_PROXY http_proxy https_proxy ALL_PROXY all_proxy NO_PROXY no_proxy`',
+      '2. `git init`',
+      '3. `git remote add origin ' + gitUrl + '`',
+      '4. `git fetch origin --depth=50` (if this fails, try `git fetch origin`)',
+      '5. `git checkout -f -B main origin/main` (if this fails, try `git checkout -f -B master origin/master`)',
+      '6. Verify with `ls` — you should see the repository source files and a .git directory.',
+      '',
+      'IMPORTANT: Do NOT skip any step. Execute them in order. Report the output of each step.',
+    ].join('\n');
 
-        if (!sandboxExists) {
-          console.error(`❌ [AI Orchestrator] Sandbox directory was not created within 30 seconds for session ${params.sessionId}`);
-          return;
-        }
+    const issueInstructions = params.issueFileContent
+      ? `
 
-        // 1. Run clone commands inside the sandbox directory
-        const cloneScript = `
-TARGET=$(ls -d "${sandboxBaseDir}"/*/ 2>/dev/null | head -n1)
-if [ -n "$TARGET" ] && [ -d "$TARGET" ]; then
-  cd "$TARGET"
-  if [ ! -d ".git" ]; then
-    git init
-    git remote remove origin 2>/dev/null || true
-    git remote add origin "${gitUrl}"
-    git fetch origin --depth=50 || git fetch origin
-    git checkout -f -B main origin/main 2>/dev/null || git checkout -f -B master origin/master 2>/dev/null || git checkout -f main 2>/dev/null || true
-  fi
-fi
-`;
-        if (isWindows) {
-          execSync('wsl sh', { input: cloneScript, stdio: 'ignore' });
-        } else {
-          execSync('sh', { input: cloneScript, stdio: 'ignore' });
-        }
-        console.log(`✅ [AI Orchestrator] Repository successfully cloned/checked out in sandbox!`);
-        
-        // 2. Write issue.md if content is provided
-        if (params.issueFileContent) {
-          const base64Content = Buffer.from(params.issueFileContent).toString('base64');
-          const writeScript = `
-TARGET=$(ls -d "${sandboxBaseDir}"/*/ 2>/dev/null | head -n1)
-if [ -n "$TARGET" ] && [ -d "$TARGET" ]; then
-  printf '%s' "${base64Content}" | base64 -d > "$TARGET/issue.md"
-fi
-`;
-          if (isWindows) {
-            execSync('wsl sh', { input: writeScript, stdio: 'ignore' });
-          } else {
-            execSync('sh', { input: writeScript, stdio: 'ignore' });
-          }
-          console.log(`✅ [AI Orchestrator] issue.md successfully created inside sandbox!`);
-        }
-      } catch (err: any) {
-        console.error(`❌ [AI Orchestrator] Error preparing sandbox:`, err.message || err);
+After cloning, write the following content to a file called issue.md in the current working directory:
+
+---
+${params.issueFileContent}
+---
+
+Use the write_file tool to create this file. Verify it exists with ls.`
+      : '';
+
+    const setupPrompt = cloneInstructions + issueInstructions;
+
+    console.log(`🤖 [AI Orchestrator] Sending setup turn to session ${params.sessionId} to clone repo inside sandbox...`);
+
+    try {
+      // Wait for the sandbox to be created by polling (max 30 retries, 1s delay)
+      const isWindows = process.platform === 'win32';
+      let sandboxBaseDir = '';
+      if (isWindows) {
+        let wslHome = '/home/gjugn';
+        try {
+          wslHome = execSync('wsl sh -c "echo \\$HOME"', { encoding: 'utf8' }).trim();
+        } catch {}
+        sandboxBaseDir = `${wslHome}/.local/share/trueforge/sandboxes/${params.sessionId}`;
+      } else {
+        const home = process.env.HOME || os.homedir();
+        sandboxBaseDir = `${home}/.local/share/trueforge/sandboxes/${params.sessionId}`;
       }
-    }, 0);
+
+      for (let i = 0; i < 30; i++) {
+        const checkScript = `ls -d "${sandboxBaseDir}"/*/ 2>/dev/null | head -n1`;
+        try {
+          const result = isWindows
+            ? execSync(`wsl sh -c '${checkScript}'`, { encoding: 'utf8' }).trim()
+            : execSync(checkScript, { encoding: 'utf8' }).trim();
+          if (result && result.length > 0) break;
+        } catch {}
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+
+      // Send the setup turn — the agent's exec tool runs inside bwrap, so clone is visible
+      const stream = await this.client.sessions.createTurnStream(params.sessionId, {
+        input: [{ type: 'user.message', content: setupPrompt }],
+      });
+
+      // Consume the stream until turn.done
+      let setupComplete = false;
+      for await (const event of stream) {
+        if (event.type === 'turn.done') {
+          setupComplete = true;
+          break;
+        }
+      }
+
+      if (setupComplete) {
+        console.log(`✅ [AI Orchestrator] Sandbox setup complete for session ${params.sessionId}!`);
+      } else {
+        console.warn(`⚠️ [AI Orchestrator] Sandbox setup stream ended without turn.done for session ${params.sessionId}`);
+      }
+    } catch (err: any) {
+      console.error(`❌ [AI Orchestrator] Error preparing sandbox via SDK turn:`, err.message || err);
+    }
   }
 
   /**
@@ -186,6 +183,12 @@ fi
   private runInSandbox(sessionId: string, script: string): string {
     const { baseDir, isWindows } = this.getSandboxBaseDir(sessionId);
     const wrapped = `
+# Clear proxy vars so pip/curl inside the sandbox go direct
+unset HTTP_PROXY  http_proxy
+unset HTTPS_PROXY https_proxy
+unset ALL_PROXY    all_proxy
+unset NO_PROXY     no_proxy
+
 SANDBOX_BASE="${baseDir}"
 D=$(ls -d "$SANDBOX_BASE"/*/ 2>/dev/null | tail -n1)
 if [ -z "$D" ] || [ ! -e "$D/.git" ]; then
@@ -237,11 +240,10 @@ if git rev-parse -q --verify "refs/remotes/origin/$B" >/dev/null 2>&1; then UP="
   async publishSandboxBranch(params: {
     sessionId: string;
     repoFullName: string;
-    desiredBranch?: string;
     token?: string;
     issueNumber?: number;
   }): Promise<
-    | { ok: true; branch: string; commitsAhead: number; committedLeftovers: boolean; lastCommitMessage: string }
+    | { ok: true; branch: string; lastCommitMessage: string }
     | { ok: false; error: string }
   > {
     if (!params.token) {
@@ -249,117 +251,36 @@ if git rev-parse -q --verify "refs/remotes/origin/$B" >/dev/null 2>&1; then UP="
     }
 
     try {
-      // --- Inspect current sandbox state ---
-      const inspectOut = this.runInSandbox(
+      // 1. Check if there are commits ahead of origin/main
+      const branchName = `fix/issue-${params.issueNumber || 'x'}`;
+      const checkOut = this.runInSandbox(
         params.sessionId,
-        `CURRENT=$(git rev-parse --abbrev-ref HEAD)
-B=main; git rev-parse --verify -q refs/heads/main >/dev/null 2>&1 || B=master
-if git rev-parse -q --verify "refs/remotes/origin/$B" >/dev/null 2>&1; then UP="origin/$B"; else UP="$B"; fi
-AHEAD=$(git rev-list --count "$UP..HEAD" 2>/dev/null || echo 0)
-DIRTY=$(git status --porcelain | cut -c4- | grep -Ev ${this.getHarnessPathFilter()} | wc -l | tr -d " ")
+        `B=main; git rev-parse --verify -q refs/heads/main >/dev/null 2>&1 || B=master
+AHEAD=$(git rev-list --count "origin/$B..HEAD" 2>/dev/null || echo 0)
 LASTMSG=$(git log -1 --pretty=%s 2>/dev/null)
-echo "@current_branch=$CURRENT"
-echo "@base_branch=$B"
-echo "@commits_ahead=$AHEAD"
-echo "@dirty_count=$DIRTY"
-echo "@last_msg=$LASTMSG"`
+echo "@ahead=$AHEAD"
+echo "@msg=$LASTMSG"`
       );
-      const read = (key: string) => inspectOut.match(new RegExp(`^@${key}=(.*)$`, 'm'))?.[1] ?? '';
-      const currentBranch = read('current_branch').trim();
-      const commitsAhead = parseInt(read('commits_ahead').trim() || '0', 10);
-      const dirtyCount = parseInt(read('dirty_count').trim() || '0', 10);
-      const lastCommitMessage = read('last_msg').trim();
+      const ahead = parseInt(checkOut.match(/@ahead=(\d+)/)?.[1] || '0', 10);
+      const lastMsg = checkOut.match(/@msg=(.*)/)?.[1]?.trim() || '';
 
-      if (inspectOut.includes('@@ERR@@')) {
-        return { ok: false, error: inspectOut.trim() };
+      if (ahead === 0) {
+        return { ok: false, error: 'No commits ahead of origin — nothing to push.' };
       }
 
-      // --- Commit any leftover uncommitted edits so nothing the agent did is lost ---
-      let committedLeftovers = false;
-      if (dirtyCount > 0) {
-        const b64Msg = Buffer.from(
-          `chore: apply remaining maintainer agent edits${params.issueNumber ? ` (#${params.issueNumber})` : ''}`
-        ).toString('base64');
-        const commitOut = this.runInSandbox(
-          params.sessionId,
-          `git add -A -- . ':(exclude)issue.md'
-if git -c user.name="Autonomous Maintainer Bot" -c user.email="maintainer-bot@trueforge.local" commit -m "$(printf '%s' '${b64Msg}' | base64 -d)" >/dev/null 2>&1; then
-  echo "@committed=yes"
-else
-  echo "@committed=no"
-fi`
-        );
-        committedLeftovers = commitOut.includes('@committed=yes');
-        if (!committedLeftovers && dirtyCount > 0) {
-          console.warn(`⚠️ [Publish] Failed to auto-commit ${dirtyCount} dirty files in sandbox.`);
-        }
-      }
-
-      if (commitsAhead === 0 && !committedLeftovers) {
-        return { ok: false, error: 'No changes found in sandbox — the agent produced no commits and no edits.' };
-      }
-
-      // --- Push HEAD by URL under a convention-named, collision-free branch ---
-      // Pushing HEAD makes local branch state irrelevant; no need to rename or check out anything.
-      // Branch name is sanitized to a safe charset before being embedded into the script.
-      const sanitizeBranchName = (b: string) =>
-        b.replace(/[^a-zA-Z0-9._/-]+/g, '-').replace(/^[-.]+|[-.]+$/g, '').slice(0, 80);
-      const desiredRaw =
-        params.desiredBranch ||
-        currentBranch ||
-        `fix/issue-${params.issueNumber || 'x'}-${lastCommitMessage.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 30)}`;
-      const desiredBranch =
-        sanitizeBranchName(desiredRaw).replace(/^(main|master|develop)$/i, 'fix/agent-fix') || 'fix/agent-fix';
-
+      // 2. Push HEAD to the branch
       const pushUrl = `https://x-access-token:${encodeURIComponent(params.token)}@github.com/${params.repoFullName}.git`;
-      const pushOut = this.runInSandbox(
+      const pushOk = this.runInSandbox(
         params.sessionId,
-        `PUSH_URL="${pushUrl}"
-DESIRED="${desiredBranch}"
-LOCAL_SHA=$(git rev-parse HEAD)
-ALL_HEADS=$(git ls-remote --heads "$PUSH_URL" "refs/heads/\${DESIRED}*" 2>/dev/null)
-MATCHING_BRANCH=$(printf '%s\n' "$ALL_HEADS" | grep "^$LOCAL_SHA" | head -n1 | awk '{print $2}' | sed 's#refs/heads/##')
-if [ -n "$MATCHING_BRANCH" ]; then
-  echo "@final_branch=$MATCHING_BRANCH"
-  echo "@already_pushed=yes"
-  exit 0
-fi
-
-TARGET="$DESIRED"
-if printf '%s\n' "$ALL_HEADS" | grep -q "refs/heads/$DESIRED$"; then
-  i=2
-  while printf '%s\n' "$ALL_HEADS" | grep -q "refs/heads/\${DESIRED}-$i$"; do
-    i=$((i+1))
-  done
-  TARGET="\${DESIRED}-$i"
-fi
-
-if git push "$PUSH_URL" "+HEAD:refs/heads/$TARGET" >/dev/null 2>&1; then
-  echo "@final_branch=$TARGET"
-else
-  echo "@push_error=failed"
-fi`
+        `git push "${pushUrl}" "+HEAD:refs/heads/${branchName}" 2>&1`
       );
 
-      if (pushOut.includes('@push_error')) {
-        return {
-          ok: false,
-          error:
-            'git push failed. Verify the PAT has contents:write access to this repository and that network egress is allowed.',
-        };
+      if (pushOk.includes('error') || pushOk.includes('fatal')) {
+        return { ok: false, error: `git push failed: ${pushOk.trim()}` };
       }
-      const finalBranch = pushOut.match(/^@final_branch=(.*)$/m)?.[1]?.trim();
-      if (!finalBranch) {
-        return { ok: false, error: 'Push produced no result — sandbox may not contain a repository.' };
-      }
-      console.log(`🚀 [AI Orchestrator] Published agent history to GitHub branch '${finalBranch}'.`);
-      return {
-        ok: true,
-        branch: finalBranch,
-        commitsAhead,
-        committedLeftovers,
-        lastCommitMessage,
-      };
+
+      console.log(`🚀 [Publish] Pushed to branch '${branchName}' on GitHub.`);
+      return { ok: true, branch: branchName, lastCommitMessage: lastMsg };
     } catch (err: any) {
       return { ok: false, error: err?.message || String(err) };
     }
@@ -506,54 +427,100 @@ ${triage.assignee ? `- **Assigned To**: @${triage.assignee}` : ''}
       });
     }
 
-    // 5. Run Supervisor Triager Agent
+    // 5. Single session: triage → compaction → implement
     let triagedAction: 'FIX' | 'CLARIFY' | 'REJECT' = 'FIX';
     let reasoning = '';
     let subAgentPlanObj: any = null;
     let replyComment = '';
-    let supervisorSessionId = '';
     let directPr = false;
     let directPrReasoning = '';
+    let isSpam = false;
+    let triageCategory = 'bug';
+    let duplicateOf: string | null = null;
 
     const rootFiles = await githubService.getRepositoryRootFiles(owner, repoName, params.githubToken);
     const rootFilesList = rootFiles.join('\n');
 
-    const supervisorInstructions = `You are the Lead Triaging Supervisor for an Autonomous AI Maintainer. 
-Your role is to investigate reported GitHub issues, explore the codebase using your tools, and make one of the following decisions:
-- FIX: The issue is a valid bug/feature with a clear implementation path. You will generate a detailed JSON developer plan.
-- CLARIFY: The issue is ambiguous, lacks detail, or is a question. You will write a response comment asking the reporter for details.
-- REJECT: The issue is spam, invalid, or out of scope. You will write a comment explaining why it is declined.
+    // Combined instructions: agent triages first, then implements if FIX
+    const combinedInstructions = `You are an Autonomous GitHub Maintainer Agent with two phases:
 
-You can read the issue details inside the file issue.md in the current working directory. You must explore the codebase using your read-only filesystem tools (like list_dir, read_file, grep_search) to locate files, understand context, and find the root cause before outputting your decision.
+## Phase 1: Triage
+Investigate the reported GitHub issue. Read issue.md in your working directory for details. Explore the codebase using your filesystem tools (list_dir, read_file, grep_search) to understand the root cause.
 
-Once you finish your investigation, you must output your final triage decision formatted EXACTLY as a single JSON object. Do not output any other text or markdown wrappers outside the JSON block:
+## Triage Categories
+Classify the issue into one of these categories:
+
+### 1. Bug Fix (action: FIX)
+- Clear error or unexpected behavior
+- Steps to reproduce provided
+- Affects existing functionality
+- Can be fixed with code changes
+
+### 2. Feature Request (action: CLARIFY or REJECT)
+- New functionality not currently in the codebase
+- Check if the feature already exists (search codebase)
+- Check if it's already planned (look at existing issues/PRs)
+- If it's a good idea but not a bug, respond with CLARIFY asking for more context
+- If it's already implemented or duplicates existing functionality, REJECT with explanation
+
+### 3. Question/Support (action: CLARIFY)
+- User needs help using the project
+- Not a bug or feature request
+- Respond with helpful information or close as "not a bug"
+
+### 4. Duplicate (action: REJECT)
+- Search for similar issues before responding
+- Use search_issues tool to find related issues
+- If duplicate found, close with reference to original issue
+
+### 5. Spam/Invalid (action: REJECT)
+- Gibberish, promotional content, or unrelated to the project
+- Close immediately with spam reasoning
+
+## Before Implementing (FIX)
+1. Verify the bug is reproducible
+2. Check if a fix already exists in a PR or branch
+3. Check if the fix might break other functionality
+4. Only implement if confident the fix is correct and minimal
+
+## Using GitHub MCP Tools
+You have access to GitHub MCP tools. Use them to:
+- Comment on issues: add_issue_comment
+- Close issues: update_pull_request (for PRs) or add_issue_comment + let backend close
+- Search for duplicates: search_issues
+- Read files: get_file_contents
+- Create PRs: create_pull_request
+
+## Output Format
+Output your triage decision as a SINGLE JSON object (no markdown wrappers):
 {
   "action": "FIX" | "CLARIFY" | "REJECT",
-  "reasoning": "A concise explanation of your findings and triage decision.",
+  "category": "bug" | "feature_request" | "question" | "duplicate" | "spam",
+  "reasoning": "Brief explanation of findings.",
+  "isSpam": true | false,
+  "duplicateOf": "issue number if duplicate, null otherwise",
   "directPr": true | false,
-  "directPrReasoning": "Your analysis on whether it is safe for the Developer Agent to open the Pull Request directly without human review (e.g. low risk, simple changes, comprehensive test suite exists). Set directPr to true if the change is low risk and standard, otherwise false.",
+  "directPrReasoning": "true = low-risk fix, safe to auto-merge. false = needs human review before merge.",
   "subAgentPlan": {
-    "issueContext": "Detailed description of what the issue is trying to solve.",
-    "analysisFindings": "Detailed findings from your codebase investigation (files read, root cause details).",
-    "executionSteps": [
-      "1. Edit [file path] to resolve [reason]...",
-      "2. Update [file path] to...",
-      "3. Run [verification commands]..."
-    ]
+    "issueContext": "What the issue is solving.",
+    "analysisFindings": "Root cause and files involved.",
+    "executionSteps": ["1. Edit [file]...", "2. Run [test]..."]
   },
-  "replyComment": "The text of the comment to post on the GitHub issue (required for CLARIFY or REJECT, optional for FIX)."
-}`;
+  "replyComment": "Comment for CLARIFY/REJECT. For spam, explain why it was closed. For duplicates, reference the original issue."
+}
 
-    const supervisorPrompt = `Investigate issue #${params.issueNumber} in repository ${params.repoFullName}:
-Title: ${params.title}
-Description: ${params.body}
+## Phase 2: Implementation (only if action=FIX)
+After outputting the JSON, wait for further instructions. You will be told to implement the fix.
+When implementing:
+1. Make minimal, precise file edits per the plan.
+2. Run 'git diff' to review ALL your changes before committing. If any change is unnecessary or unrelated to the issue, revert it with 'git checkout -- <file>'.
+3. Only commit files that directly address the issue. Do NOT commit lockfiles, build artifacts, or unrelated changes.
+4. Verify changes with test suites.
+5. Commit with a descriptive message. Do NOT push or open PRs.
+6. The repo is already cloned — work with files in the root.`;
 
-Here is the list of root-level files/folders in the repository:
-${rootFilesList}
-
-make decision what to do of this issue. and return a proper json accordnigly`;
-
-    console.log(`🤖 [AI Orchestrator] Contacting TrueForge local server at ${this.baseUrl} to create Supervisor session...`);
+    console.log(`🤖 [AI Orchestrator] Creating single session at ${this.baseUrl}...`);
+    let sessionId = '';
     try {
       const { data: session } = (await this.client.sessions.create({
         agent: {
@@ -562,233 +529,105 @@ make decision what to do of this issue. and return a proper json accordnigly`;
               name: this.normalizeModelName(params.modelName),
               params: { max_tokens: 4096, temperature: 0.1 },
             },
-            instructions: supervisorInstructions,
+            instructions: combinedInstructions,
             config: {
-              sandbox: {
-                enabled: true,
-              },
+              sandbox: { enabled: true },
               require_approval_for_tools: ['merge_pull_request'],
+              mcp_servers: ['github'],
             },
           } as any,
         },
       })) as any;
 
-      if (!session?.id) {
-        throw new Error(`Failed to create TrueForge supervisor session ${JSON.stringify(session)}`)
+      if (!session?.id) throw new Error(`Failed to create session ${JSON.stringify(session)}`);
+      sessionId = session.id;
+      await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { trueforgeSessionId: sessionId } });
+
+      // Step A: Clone repo + write issue.md inside sandbox
+      const issueContent = `# GitHub Issue #${params.issueNumber}\n\n**Repository**: ${params.repoFullName}\n**Title**: ${params.title}\n**Author**: ${params.author}\n\n## Description\n${params.body}`;
+      await this.prepareSandbox({ repoFullName: params.repoFullName, sessionId, token: params.githubToken, issueFileContent: issueContent });
+
+      // Step B: Triage turn
+      const triagePrompt = `Investigate issue #${params.issueNumber} in ${params.repoFullName}:\nTitle: ${params.title}\nDescription: ${params.body}\n\nRoot-level files:\n${rootFilesList}\n\nMake your triage decision and return the JSON.`;
+
+      console.log(`⏳ [AI Orchestrator] Running triage turn...`);
+      let triageResponse = '';
+      const triageResult = await this.streamTurnWithAutoResume(sessionId, triagePrompt, (event) => {
+        if (event.type === 'model.message.delta') triageResponse += event.content || '';
+        if (event.type === 'model.message' && typeof event.content === 'string') triageResponse = event.content;
+        if (event.type === 'turn.done' && event.state?.output?.content && typeof event.state.output.content === 'string') triageResponse = event.state.output.content;
+      });
+      triageResponse = triageResult.accumulatedText || triageResponse;
+      console.log('ℹ️ [Triage] Response:', triageResponse);
+
+      // Parse triage JSON
+      const jsonMatch = triageResponse.match(/```json\s*(\{[\s\S]*?\})\s*```/) || triageResponse.match(/(\{[\s\S]*\})/);
+      if (jsonMatch) {
+        const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+        triagedAction = parsed.action || 'FIX';
+        reasoning = parsed.reasoning || '';
+        subAgentPlanObj = parsed.subAgentPlan || null;
+        replyComment = parsed.replyComment || '';
+        directPr = parsed.directPr ?? false;
+        directPrReasoning = parsed.directPrReasoning || '';
+        isSpam = parsed.isSpam ?? false;
+        triageCategory = parsed.category || 'bug';
+        duplicateOf = parsed.duplicateOf || null;
       }
-
-        supervisorSessionId = session.id;
-        await prisma.maintainerWorkflow.update({
-          where: { id: workflow.id },
-          data: { trueforgeSessionId: session.id },
-        });
-
-        const supervisorIssueContent = `# GitHub Issue #${params.issueNumber}
-
-**Repository**: ${params.repoFullName}
-**Title**: ${params.title}
-**Author**: ${params.author}
-
-## Description
-${params.body}`;
-
-        this.prepareSandbox({
-          repoFullName: params.repoFullName,
-          sessionId: session.id,
-          token: params.githubToken,
-          issueFileContent: supervisorIssueContent,
-        });
-
-        console.log(`⏳ [AI Orchestrator] Consuming Supervisor turn stream with auto-resume...`);
-        let supervisorResponse = '';
-        const supervisorTurnResult = await this.streamTurnWithAutoResume(
-          session.id,
-          supervisorPrompt,
-          (event) => {
-            if (event.type === 'model.message.delta') {
-              supervisorResponse += event.content || '';
-            }
-            if (event.type === 'model.message' && typeof event.content === 'string') {
-              supervisorResponse = event.content;
-            }
-            if (event.type === 'turn.done' && event.state?.output?.content && typeof event.state.output.content === 'string') {
-              supervisorResponse = event.state.output.content;
-            }
-          }
-        );
-        supervisorResponse = supervisorTurnResult.accumulatedText || supervisorResponse;
-
-        console.log('ℹ️ [Supervisor Triager] Raw Response:', supervisorResponse);
-
-        const jsonMatch = supervisorResponse.match(/```json\s*(\{[\s\S]*?\})\s*```/) || supervisorResponse.match(/(\{[\s\S]*\})/);
-        if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-          triagedAction = parsed.action || 'FIX';
-          reasoning = parsed.reasoning || '';
-          subAgentPlanObj = parsed.subAgentPlan || null;
-          replyComment = parsed.replyComment || '';
-          directPr = parsed.directPr ?? false;
-          directPrReasoning = parsed.directPrReasoning || '';
-        }
-      
     } catch (e: any) {
-      console.warn('Supervisor triaging failed, defaulting to FIX action:', e);
+      console.warn('Triage failed, defaulting to FIX:', e);
       reasoning = `Triage failed: ${e.message || String(e)}`;
     }
 
-    // 6. Dispatch Triage Actions
+    // 6. Dispatch triage actions
     if (triagedAction === 'CLARIFY') {
       const commentBody = replyComment || `🤖 **Maintainer Update**: Clarification requested. ${reasoning}`;
       await githubService.addIssueComment(owner, repoName, params.issueNumber, commentBody, params.githubToken);
-
-      const updatedWorkflow = await prisma.maintainerWorkflow.update({
-        where: { id: workflow.id },
-        data: {
-          status: 'awaiting_input',
-          prDecisionReasoning: `🤖 Supervisor triage: CLARIFY. Reasoning: ${reasoning}`,
-          events: {
-            create: {
-              type: 'clarification_requested',
-              title: `Clarification requested on GitHub`,
-              detail: commentBody,
-            },
-          },
-        },
-      });
-
-      return { workflow: updatedWorkflow, triage, prNum: null, sessionId: supervisorSessionId };
+      const updatedWorkflow = await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { status: 'awaiting_input', prDecisionReasoning: `🤖 Triage: CLARIFY. ${reasoning}`, events: { create: { type: 'clarification_requested', title: 'Clarification requested on GitHub', detail: commentBody } } } });
+      return { workflow: updatedWorkflow, triage, prNum: null, sessionId };
     }
 
     if (triagedAction === 'REJECT') {
-      const commentBody = replyComment || `🤖 **Maintainer Update**: Issue closed. ${reasoning}`;
-      await githubService.addIssueComment(owner, repoName, params.issueNumber, commentBody, params.githubToken);
-
-      const updatedWorkflow = await prisma.maintainerWorkflow.update({
-        where: { id: workflow.id },
-        data: {
-          status: 'failed',
-          prDecisionReasoning: `🤖 Supervisor triage: REJECT. Reasoning: ${reasoning}`,
-          events: {
-            create: {
-              type: 'issue_rejected',
-              title: `Issue rejected on GitHub`,
-              detail: commentBody,
-            },
-          },
-        },
-      });
-
-      return { workflow: updatedWorkflow, triage, prNum: null, sessionId: supervisorSessionId };
+      let commentBody = '';
+      let eventTitle = '';
+      
+      if (isSpam) {
+        // Auto-close spam issues with reasoning
+        commentBody = replyComment || `🤖 **Maintainer Update**: This issue has been identified as spam and has been closed.\n\n**Reason**: ${reasoning}`;
+        await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+        console.log(`🔒 [AI Orchestrator] Spam issue #${params.issueNumber} closed automatically`);
+        eventTitle = `Issue rejected on GitHub (spam)`;
+      } else if (duplicateOf) {
+        // Close as duplicate with reference to original issue
+        commentBody = replyComment || `🤖 **Maintainer Update**: This issue is a duplicate of #${duplicateOf} and has been closed.\n\n**Reason**: ${reasoning}`;
+        await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+        console.log(`🔒 [AI Orchestrator] Duplicate issue #${params.issueNumber} closed (duplicate of #${duplicateOf})`);
+        eventTitle = `Issue closed as duplicate of #${duplicateOf}`;
+      } else {
+        // Regular reject - add comment and close
+        commentBody = replyComment || `🤖 **Maintainer Update**: Issue closed. ${reasoning}`;
+        await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+        console.log(`🔒 [AI Orchestrator] Issue #${params.issueNumber} closed`);
+        eventTitle = `Issue rejected on GitHub`;
+      }
+      
+      const updatedWorkflow = await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { status: 'failed', prDecisionReasoning: `🤖 Triage: REJECT (${triageCategory}${isSpam ? ', spam' : ''}${duplicateOf ? `, duplicate of #${duplicateOf}` : ''}). ${reasoning}`, events: { create: { type: 'issue_rejected', title: eventTitle, detail: commentBody } } } });
+      return { workflow: updatedWorkflow, triage, prNum: null, sessionId };
     }
 
-    // Default to FIX: Spawn Developer Sub-Agent
-    const devInstructions = `You are an Autonomous GitHub Developer Agent.
-Your task is to execute the following implementation plan prepared by the Triaging Supervisor:
+    // FIX: Implementation turn — compact context + implement in one turn
+    console.log(`🤖 [AI Orchestrator] Triage: FIX. Starting implementation...`);
 
-Issue Context:
-${subAgentPlanObj?.issueContext || params.title}
+    const implPrompt = `Triage complete. Now implement the fix.\n\nForget the triage analysis above. Here is your implementation plan:\n\nIssue: #${params.issueNumber} — ${params.title}\nContext: ${subAgentPlanObj?.issueContext || params.title}\nFindings: ${subAgentPlanObj?.analysisFindings || reasoning}\nSteps:\n${Array.isArray(subAgentPlanObj?.executionSteps) ? subAgentPlanObj.executionSteps.join('\n') : '1. Investigate codebase\n2. Implement fix'}\n\nThe repository is already cloned in your working directory. Read issue.md for full context. Do NOT run git clone. Make minimal edits, verify with tests, and commit.`;
 
-Analysis & Findings:
-${subAgentPlanObj?.analysisFindings || reasoning}
+    // Stream implementation turn and consume developer session events (tool calls, etc.)
+    console.log(`⏳ [AI Orchestrator] Developer implementation stream started...`);
+    this.consumeDeveloperAgentSession(sessionId, implPrompt, workflow.id)
+      .then(() => console.log('✅ [AI Orchestrator] Developer session completed successfully'))
+      .catch((err) => console.error('❌ [AI Orchestrator] Error in consumeDeveloperAgentSession:', err?.message || err));
 
-Execution Steps:
-${Array.isArray(subAgentPlanObj?.executionSteps) ? subAgentPlanObj.executionSteps.join('\n') : '1. Investigate codebase\n2. Implement fix'}
-
-Adhere to the following rules:
-1. Make minimal, precise file edits to implement the plan.
-2. Verify all changes by running appropriate test suites in the sandbox.
-3. Commit your completed changes with a descriptive message (e.g. "fix: resolve <what> (<where>)"). The Maintainer service publishes branches and opens Pull Requests itself — do NOT push to any remote and do NOT attempt to open Pull Requests.
-4. Pause for maintainer review before merging.
-5. The repository is already cloned and fully checked out in your current working directory. Do NOT run git clone; work directly with the files in the root.
-6. Read issue.md inside the current working directory for the complete implementation plan and issue context.`;
-
-    console.log(`🤖 [AI Orchestrator] Supervisor triaged as FIX. Creating Developer Sub-Agent session on TrueForge Harness...`);
-    const { data: devSession } = (await this.client.sessions.create({
-      agent: {
-        spec: {
-          model: {
-            name: this.normalizeModelName(params.modelName),
-            params: { temperature: 0.1 },
-          },
-          instructions: devInstructions,
-          config: {
-            sandbox: {
-              enabled: true,
-            },
-            require_approval_for_tools: ['merge_pull_request'],
-          },
-        } as any,
-      },
-    })) as any;
-
-    if (!devSession?.id) {
-      throw new Error(`Failed to create TrueForge developer session ${JSON.stringify(devSession)}`);
-    }
-
-    console.log(`✅ [AI Orchestrator] Developer session created: ${devSession.id}. Starting implementation turn...`);
-
-      await prisma.maintainerWorkflow.update({
-        where: { id: workflow.id },
-        data: { trueforgeSessionId: devSession.id },
-      });
-
-      const devPrompt = `Please start executing the Developer Implementation Plan for issue #${params.issueNumber} in repository ${params.repoFullName}.
-
-Implementation Plan:
-- Issue Context: ${subAgentPlanObj?.issueContext || params.title}
-- Analysis & Findings: ${subAgentPlanObj?.analysisFindings || reasoning}
-- Execution Steps:
-${Array.isArray(subAgentPlanObj?.executionSteps) ? subAgentPlanObj.executionSteps.join('\n') : '1. Investigate codebase\n2. Implement fix'}
-
-Note: The repository is already cloned and fully checked out in your current working directory. Do NOT run git clone; work directly with the files in the root.`;
-      const devIssueContent = `# GitHub Issue #${params.issueNumber}
-
-**Repository**: ${params.repoFullName}
-**Title**: ${params.title}
-**Author**: ${params.author}
-
-## Description
-${params.body}
-
----
-
-## Developer Implementation Plan
-
-### Issue Context
-${subAgentPlanObj?.issueContext || params.title}
-
-### Analysis & Findings
-${subAgentPlanObj?.analysisFindings || reasoning}
-
-### Execution Steps
-${Array.isArray(subAgentPlanObj?.executionSteps) ? subAgentPlanObj.executionSteps.join('\n') : '1. Investigate codebase\n2. Implement fix'}`;
-
-      this.prepareSandbox({
-        repoFullName: params.repoFullName,
-        sessionId: devSession.id,
-        token: params.githubToken,
-        issueFileContent: devIssueContent,
-      });
-
-      console.log(`⏳ [AI Orchestrator] Developer stream started. Executing task in background Daytona sandbox with auto-resume...`);
-
-      this.consumeDeveloperAgentSession(devSession.id, devPrompt, workflow.id).catch((err) =>
-        console.error('Error in Developer consumeDeveloperAgentSession:', err)
-      );
-
-      const updatedWorkflow = await prisma.maintainerWorkflow.update({
-        where: { id: workflow.id },
-        data: {
-          status: 'investigating',
-          prDecisionReasoning: `🤖 Supervisor triage: FIX. Reasoning: ${reasoning}`,
-          directPr,
-          directPrReasoning,
-        },
-      });
-
-      return { workflow: updatedWorkflow, triage, prNum: null, sessionId: devSession.id };
-
-    return { workflow, triage, prNum: null, sessionId: supervisorSessionId };
+    const updatedWorkflow = await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { status: 'investigating', prDecisionReasoning: `🤖 Triage: FIX. ${reasoning}`, directPr, directPrReasoning } });
+    return { workflow: updatedWorkflow, triage, prNum: null, sessionId };
   }
 
   /**
@@ -1033,11 +872,13 @@ Step 5: Request maintainer approval before final merge!`;
         workflow = await prisma.maintainerWorkflow.findUnique({
           where: { id: workflowId },
         });
+        console.log(`📋 [Post-Process] Workflow: directPr=${workflow?.directPr} prCreated=${workflow?.prCreated} status=${workflow?.status}`);
         if (!activeSessionId) {
           activeSessionId = workflow?.trueforgeSessionId || '';
         }
         if (activeSessionId) {
           changedFiles = await this.getSandboxChangedFiles(activeSessionId);
+          console.log(`📂 [Post-Process] Changed files: ${changedFiles.length} files: ${changedFiles.join(', ')}`);
           diff = this.runInSandbox(
             activeSessionId,
             `B=main; git rev-parse --verify -q refs/heads/main >/dev/null 2>&1 || B=master
@@ -1046,10 +887,11 @@ git diff "$UP..HEAD"`
           );
         }
       } catch (err: any) {
-        console.warn('Failed to generate git diff from sandbox:', err.message || err);
+        console.warn('❌ [Post-Process] Failed to generate git diff from sandbox:', err.message || err);
       }
 
       const substantiveFiles = changedFiles.filter((f) => !BUILD_ARTIFACT_FILES.has(f));
+      console.log(`📊 [Post-Process] Substantive files: ${substantiveFiles.length}`);
 
       let prNumber = workflow?.prNumber || null;
       let prCreated = workflow?.prCreated || false;
@@ -1057,8 +899,8 @@ git diff "$UP..HEAD"`
       let publishNote = '';
       let publishedBranch = '';
 
-      if (workflow?.directPr && !workflow.prCreated && activeSessionId) {
-        console.log(`🚀 [AI Orchestrator] directPr is enabled! Publishing agent branch to GitHub...`);
+      if (!workflow.prCreated && activeSessionId) {
+        console.log(`🚀 [AI Orchestrator] Publishing agent branch to GitHub (directPr=${workflow?.directPr})...`);
 
         if (!substantiveFiles.length) {
           // Sanity check: the supervisor asked for a direct PR, but every change is
@@ -1071,13 +913,9 @@ git diff "$UP..HEAD"`
             const userSettings = await prisma.maintainerSettings.findFirst();
             const token = userSettings?.githubToken || undefined;
 
-            const titleSlug = workflow.title.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 20).replace(/-+$/g, '');
-            const fallbackBranchName = `fix/issue-${workflow.issueNumber}-${titleSlug || 'fix'}`;
-
             const published = await this.publishSandboxBranch({
               sessionId,
               repoFullName: workflow.repoFullName,
-              desiredBranch: fallbackBranchName,
               token,
               issueNumber: workflow.issueNumber,
             });
@@ -1100,6 +938,16 @@ git diff "$UP..HEAD"`
                 prNumber = createdPr.number || null;
                 prCreated = true;
                 console.log(`✅ [AI Orchestrator] Pull Request created successfully: #${prNumber}`);
+
+                // Run code review on the new PR
+                try {
+                  const { codeReviewEngine } = await import('#/lib/code-review');
+                  const review = await codeReviewEngine.reviewPR(owner, repoName, prNumber!, token);
+                  await codeReviewEngine.postReview(owner, repoName, prNumber!, review, token);
+                  console.log(`🔍 [AI Orchestrator] Code review completed: ${review.comments.length} comments, approve: ${review.approve}`);
+                } catch (reviewErr: any) {
+                  console.warn('⚠️ [AI Orchestrator] Code review failed:', reviewErr.message || reviewErr);
+                }
               } else {
                 publishNote = `Branch published but PR creation failed: ${createdPr.error}`;
                 console.error(`❌ [AI Orchestrator] ${publishNote}`);
