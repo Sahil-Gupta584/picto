@@ -113,7 +113,7 @@ Full stack (Postgres + Redis) when you need multi-replica: `cd apps/web && docke
 
 > Every substantive merge ships through a pull request reviewed by Qodo before merge. High findings are fixed or dismissed with reason, then re-reviewed.
 
-**Representative merged PR:** [feat(dashboard): simplify to 2 tabs (attention + logs accordion), repo dropdown top-right, BYOK in nav, detail drawer](https://github.com/Sahil-Gupta584/picto/pull/1) — example; update to actual merged PR after Qodo review.
+**Representative merged PR:** [fix: correct rebrand Picot → Picto (#2)](https://github.com/Sahil-Gupta584/picto/pull/2) — Qodo reviewed (2 bot comments), merged via squash.
 
 **What Qodo surfaced & what we did:** Qodo flagged missing helper abstraction (`isDaytonaPermissionError` vs inline `instanceof` check), stale docstring on `isDaytonaAuthError`, missing OpenAPI `403` schema in `sandboxProviderRoutes.ts`, and missing test coverage — we extracted the helper, updated the route spec, rewrote the error message to name required grants, and added the `403` test + changeset.
 
