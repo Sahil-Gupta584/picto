@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { authClient } from '#/lib/auth-client'
 import { Button } from '#/components/Button'
 import { Input } from '#/components/Input'
-import { RiGoogleFill, RiGitBranchLine, RiArrowLeftLine, RiMailSendLine } from 'react-icons/ri'
+import { RiGoogleFill, RiArrowLeftLine, RiMailSendLine } from 'react-icons/ri'
+import { SiDuckduckgo } from 'react-icons/si'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -56,12 +57,12 @@ function LoginPage() {
           </Link>
 
           <div className="flex items-center gap-2 mt-1">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#1890ff] to-[#096dd9] text-white shadow-[0_0_12px_rgba(24,144,255,0.3)]">
-              <RiGitBranchLine className="text-base" />
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#f59e0b] to-[#ea580c] text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]">
+              <SiDuckduckgo className="text-base" />
             </span>
             <div className="flex items-center gap-1.5">
               <span className="text-base font-bold tracking-tight text-white">
-                ForgeMaintainer
+                Picot
               </span>
               <span className="text-[10px] font-mono text-neutral-400 bg-white/[0.05] border border-white/[0.08] px-1.5 py-0.2 rounded">
                 auth

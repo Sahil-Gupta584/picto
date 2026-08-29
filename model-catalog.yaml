@@ -1,4 +1,4 @@
-# Custom model catalog for ForgeMaintainer
+# Custom model catalog for Picot
 # Only Gemini 3.1 and 3.5 Flash Lite models
 # Override the shipped catalog by setting: MODEL_CATALOG_PATH=model-catalog.yaml
 

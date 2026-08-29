@@ -28,7 +28,7 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
         content: 'width=device-width, initial-scale=1',
       },
       {
-        title: 'ForgeMaintainer - Autonomous GitHub Repository Maintainer',
+        title: 'Picot - Autonomous GitHub Repository Maintainer',
       },
     ],
     links: [
