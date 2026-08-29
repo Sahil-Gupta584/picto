@@ -552,7 +552,7 @@ When implementing:
       await this.prepareSandbox({ repoFullName: params.repoFullName, sessionId, token: params.githubToken, issueFileContent: issueContent });
 
       // Step B: Triage turn
-      const triagePrompt = `Investigate issue #${params.issueNumber} in ${params.repoFullName}:\nTitle: ${params.title}\nDescription: ${params.body}\n\nRoot-level files:\n${rootFilesList}\n\nMake your triage decision and return the JSON.`;
+      const triagePrompt = `Read issue.md in your working directory for the full issue details (title, description, author, etc.).\n\nThe repository is ${params.repoFullName}.\n\nRoot-level files:\n${rootFilesList}\n\nExplore the codebase using your tools (list_dir, read_file, grep_search) to understand context. Then make your triage decision and return the JSON.`;
 
       console.log(`⏳ [AI Orchestrator] Running triage turn...`);
       let triageResponse = '';
