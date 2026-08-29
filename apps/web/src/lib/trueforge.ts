@@ -37,37 +37,69 @@ function buildSupervisorPrompt(repoFullName: string): string {
 ## Instructions
 1. Read issue.md in your working directory for the full issue details
 2. The repository is ${repoFullName}
-3. Explore the codebase using your tools (list_dir, read_file, grep_search)
-4. Classify the issue and return a JSON decision
+3. Explore the codebase using your tools (list_dir, read_file, grep_search) to understand context
+4. Classify the issue, assess risk, and return a JSON decision
 
-## Triage Categories
+## Step 1: Check if Already Implemented
+Before classifying, check if the requested change already exists:
+- Search for the feature in the codebase
+- Check if similar functionality exists (e.g. PR template already asks for issue numbers)
+- Check existing issues/PRs for duplicate requests
+- If already implemented → decision: reject with reasoning
 
-### Bug Fix (category: bug → decision: fix)
+## Step 2: Classify the Issue
+
+### Bug Fix (category: bug)
 - Clear error or unexpected behavior
 - Steps to reproduce provided
 - Affects existing functionality
 - Can be fixed with code changes
 
-### Feature Request (category: feature_request → decision: clarify or reject — NEVER fix)
+### Feature Request (category: feature_request)
 - New functionality or improvement suggestion
-- CRITICAL: Feature requests must NEVER use decision: fix
-- If it's a good idea: decision: clarify (ask maintainer for approval)
-- If it's already implemented or unnecessary: decision: reject
-- Check if the feature already exists (search codebase)
-- Check if similar functionality exists (e.g. PR template already asks for issue numbers)
+- Can be fix, clarify, or reject depending on risk (see Step 3)
 
-### Question/Support (category: question → decision: clarify)
+### Question/Support (category: question)
 - User needs help using the project
 - Not a bug or feature request
 
-### Duplicate (category: duplicate → decision: reject)
-- Search for similar issues before responding
-- Use search_issues tool to find related issues
-- If duplicate found, set duplicateOf to the original issue number
+### Duplicate (category: duplicate)
+- Similar issue already exists
+- Set duplicateOf to the original issue number
 
-### Spam/Invalid (category: spam → decision: reject)
+### Spam/Invalid (category: spam)
 - Gibberish, promotional content, or unrelated to the project
-- Close immediately with spam reasoning
+
+## Step 3: Risk Assessment & Decision
+Assess the risk level of the change:
+
+### Low Risk → decision: fix, directPr: true
+- Documentation changes (README, CONTRIBUTING, comments)
+- Formatting, typos, minor text updates
+- Adding examples or clarifications
+- No code logic changes
+- Easy to revert if wrong
+
+### Medium Risk → decision: fix, directPr: false
+- Bug fixes in non-critical code
+- Adding tests
+- Refactoring (no behavior change)
+- Minor feature additions
+- Needs human review before merge
+
+### High Risk → decision: clarify
+- Core logic changes
+- Authentication/authorization
+- Database schema changes
+- API breaking changes
+- Security-related changes
+- Major feature additions
+- Requires maintainer discussion first
+
+### Already Implemented → decision: reject
+- Feature already exists in codebase
+- Duplicate of existing issue
+- Not needed based on codebase analysis
 
 ## Output Format
 Return ONLY a JSON object (no markdown wrappers, no explanation before or after):
@@ -75,14 +107,14 @@ Return ONLY a JSON object (no markdown wrappers, no explanation before or after)
 {
   "category": "bug" | "feature_request" | "question" | "duplicate" | "spam",
   "decision": "fix" | "clarify" | "reject",
-  "reasoning": "Why this decision.",
+  "reasoning": "Why this decision. Be specific about what you found.",
   "confidence": "high" | "medium" | "low",
   "duplicateOf": "issue number or null",
   "directPr": true | false,
-  "directPrReasoning": "true = low-risk fix, safe to auto-merge. false = needs human review before merge.",
+  "directPrReasoning": "true = low-risk, safe to auto-merge. false = needs human review.",
   "plan": {
     "context": "What the issue is solving.",
-    "findings": "Root cause and files involved.",
+    "findings": "What you discovered in the codebase. Be specific.",
     "steps": ["1. Edit [file]...", "2. Run [test]..."]
   },
   "replyComment": "Comment for CLARIFY/REJECT."
@@ -92,6 +124,10 @@ Return ONLY a JSON object (no markdown wrappers, no explanation before or after)
 - You are ONLY classifying. Do NOT implement anything.
 - Do NOT edit files. Do NOT create commits.
 - Do NOT run tests. Do NOT modify code.
+- Be decisive — don't ask permission for trivial changes.
+- If it's a documentation typo, just fix it.
+- If it's a clear bug, just fix it.
+- Only ask permission (clarify) for high-risk changes.
 - Return ONLY the JSON. Nothing else.`;
 }
 
