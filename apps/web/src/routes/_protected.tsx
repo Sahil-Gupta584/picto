@@ -10,6 +10,7 @@ import {
   RiLogoutBoxLine,
   RiGitBranchLine,
   RiMoneyDollarCircleLine,
+  RiSettings4Line,
 } from 'react-icons/ri'
 import { authClient } from '#/lib/auth-client'
 import { getSession } from '#/lib/session'
@@ -123,6 +124,17 @@ function ProtectedLayout() {
                     <div className="flex items-center gap-2 text-xs font-medium py-1 text-neutral-200 hover:text-white">
                       <RiMoneyDollarCircleLine className="text-sm text-emerald-400" />
                       <span>Billing & Quota</span>
+                    </div>
+                  </Dropdown.Item>
+
+                  <Dropdown.Item
+                    id="byok"
+                    textValue="BYOK & Config"
+                    onAction={() => window.dispatchEvent(new CustomEvent('open-byok-settings'))}
+                  >
+                    <div className="flex items-center gap-2 text-xs font-medium py-1 text-neutral-200 hover:text-white">
+                      <RiSettings4Line className="text-sm text-[#118af3]" />
+                      <span>BYOK & Config</span>
                     </div>
                   </Dropdown.Item>
 
