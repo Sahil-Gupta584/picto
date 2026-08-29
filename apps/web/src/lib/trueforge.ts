@@ -100,7 +100,7 @@ ${params.issueFileContent}
 Use the write_file tool to create this file. Verify it exists with ls.`
       : '';
 
-    const setupPrompt = cloneInstructions + issueInstructions;
+    const setupPrompt = cloneInstructions + issueInstructions + '\n\nIMPORTANT: After completing these steps, respond with exactly: "Setup complete." Do NOT analyze the issue, do NOT return any JSON, do NOT investigate the codebase. Just confirm setup is done and stop.';
 
     console.log(`🤖 [AI Orchestrator] Sending setup turn to session ${params.sessionId} to clone repo inside sandbox...`);
 
@@ -456,10 +456,14 @@ Classify the issue into one of these categories:
 - Affects existing functionality
 - Can be fixed with code changes
 
-### 2. Feature Request (action: CLARIFY or REJECT)
-- New functionality not currently in the codebase
+### 2. Feature Request (action: CLARIFY or REJECT — NEVER FIX)
+- New functionality or improvement suggestion
+- CRITICAL: Feature requests must NEVER use action: FIX
+- If it's a good idea: action: CLARIFY (ask maintainer for approval first)
+- If it's already implemented or unnecessary: action: REJECT
 - Check if the feature already exists (search codebase)
 - Check if it's already planned (look at existing issues/PRs)
+- Check if similar functionality exists (e.g. PR template already asks for issue numbers)
 - If it's a good idea but not a bug, respond with CLARIFY asking for more context
 - If it's already implemented or duplicates existing functionality, REJECT with explanation
 
