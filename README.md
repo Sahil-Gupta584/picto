@@ -1,111 +1,137 @@
+# Picot — Autonomous GitHub Maintainer
 
-🏆 Hackathon Angle
+> *Give your repo a maintainer that never sleeps.*
 
-Tagline: "An AI maintainer that triages, fixes, and creates PRs — so humans can focus on what matters."
+**Tagline:** Picot triages issues, fixes them in a sandbox, and opens PRs — humans just approve.
 
-Demo Flow:
-1. Show spam issue → auto-closed in 30 seconds
-2. Show bug issue → auto-triaged, fixed, PR created in 2 minutes
-3. Show PR with reasoning → "The agent decided this was safe to merge because..."
+**One-liner for judges:** An approval-gated code-review agent running on **TrueForge**. Every issue triggers a TrueForge session that reaches GitHub via MCP, runs generated fixes in a Daytona sandbox, pauses for human approval before merge, and can delegate to subagents. Every substantive change ships through a pull request reviewed by Qodo.
 
-Judges see: A working agent, not a demo.
-
-# Autonomous GitHub Repository Maintainer
-
-An autonomous GitHub maintenance agent and maintainer dashboard built on **TrueForge** agent harness for the **TrueForge Hackathon**.
+Demo flow (3 min):
+1. Spam issue opened → auto-closed in 30s
+2. Bug issue opened → triaged → fixed in sandbox → PR created in ~2 min
+3. Dashboard shows risk + test logs → *Approve & Merge* releases the harness checkpoint
 
 ---
 
 ## 🌟 Overview
 
-This project provides an end-to-end automated maintainer pipeline for GitHub repositories. When a GitHub issue is opened, the TrueForge agent autonomously investigates the problem, modifies code in a Daytona sandbox environment, executes repository test suites, creates a pull request, and holds at a human approval checkpoint until the maintainer approves and merges the PR via the dashboard.
+Picot is an end-to-end autonomous maintainer for GitHub repositories. When an issue is opened, a TrueForge agent:
+
+1. Investigates the codebase
+2. Edits code in an isolated **Daytona sandbox**
+3. Runs `pnpm test` / `pnpm typecheck` in the sandbox
+4. Creates a pull request
+5. **Pauses** at `require_approval_for_tools: ["merge_pull_request"]` until you approve in the dashboard
+
+Two tabs only: **Needs Attention** (human checkpoint queue) + **Logs** (accordion: 3 new issues · 3 new PRs · activity timeline → drawer details). Repo selector lives top-right with “Add new repo”.
+
+Built with TanStack Start + oRPC + Prisma 7 + `@truefoundry/trueforge-sdk`.
 
 ---
 
 ## 🏗️ Architecture
 
 ```
-                                  +---------------------------------------+
-                                  |         Maintainer Dashboard          |
-                                  |    (Needs Attention / Issue / PR)     |
-                                  +-------------------+-------------------+
-                                                      | oRPC / HTTP
-                                                      v
-                                  +-------------------+-------------------+
-                                  |       Maintainer Backend Router       |
-                                  |       (TanStack Start + oRPC)         |
-                                  +---------+-------------------+---------+
-                                            |                   |
-                     TrueForge SDK (@truefoundry/trueforge-sdk) | GitHub REST / Octokit
-                                            |                   |
-                                            v                   v
-+-------------------------------------------+-----+    +--------+------------------+
-|                  TrueForge                      |    |         GitHub API       |
-|  +-------------------------------------------+  |    |  (Issues, PRs, Webhooks) |
-|  |           Agent Execution Loop            |  |    +--------+------------------+
-|  |  - Model Orchestration (Claude / Sonnet)  |  |
-|  |  - Session / Turn Lifecycle (SSE Streams) |  |
-|  |  - Human Checkpoints (Tool Approvals)     |  |
-|  +---------------------+---------------------+  |
-|                        |                        |
-|    +-------------------+-------------------+    |
-|    |      Sandbox Tool (Daytona VM)        |----+
-|    |  - File Edit / Workspace Git Sync     |
-|    |  - Test Execution (npm test / pytest) |
-|    +---------------------------------------+
-+-------------------------------------------------+
+                                   +---------------------------------------+
+                                   |           Picot Dashboard             |
+                                   |   (Needs Attention / Logs + Drawer)   |
+                                   +-------------------+-------------------+
+                                                       | oRPC
+                                                       v
+                                   +-------------------+-------------------+
+                                   |       Maintainer Router (oRPC)        |
+                                   +---------+-------------------+---------+
+                                             |                   |
+                      TrueForge SDK (@truefoundry/trueforge-sdk) | GitHub REST / Octokit
+                                             |                   |
+                                             v                   v
+ +-------------------------------------------+-----+    +--------+------------------+
+ |                  TrueForge                      |    |       GitHub API         |
+ |  +-------------------------------------------+  |    |  Issues · PRs · Webhooks |
+ |  |           Agent Execution Loop            |  |    +--------+------------------+
+ |  |  - Model (Gemini / Claude via BYOK)      |  |
+ |  |  - Session / Turn (SSE)                  |  |
+ |  |  - Human Checkpoint (tool approval)      |  |
+ |  +---------------------+---------------------+  |
+ |                        |                        |
+ |    +-------------------+-------------------+    |
+ |    |      Sandbox Tool (Daytona VM)        |----+
+ |    |  - File edits · git sync · tests      |
+ |    +---------------------------------------+
+ +-------------------------------------------------+
 ```
 
 ---
 
-## ⚙️ How TrueForge is Used
+## ⚙️ How TrueForge Is Used (Harness Doing Real Work)
 
-1. **Agent Specification (`apps/web/src/lib/trueforge.ts`)**:
-   - Model: `anthropic/claude-sonnet-4-6`
-   - Sandbox: Enabled (`config.sandbox.enabled = true`) for isolated execution.
-   - Approval Gate: `require_approval_for_tools: ['github_merge_pr', 'request_maintainer_merge_approval']`
+A judge must see the harness do all three:
 
-2. **Session & Turn Lifecycle**:
-   - 1 TrueForge Session per GitHub issue lifecycle.
-   - Streaming Server-Sent Events (SSE) communicate agent turn progress.
+1. **A way to reach your systems** — GitHub MCP (`mcp_servers: ["github"]`) + Octokit for issues/PRs/webhooks. Agent reads `PULL_REQUEST_TEMPLATE.md`, `CONTRIBUTING.md`, searches issues with `search_issues`.
+2. **A safe place to run what it writes** — `config.sandbox.enabled = true` (Daytona). All edits + `pnpm test` run in the sandbox; host is never touched. Publishes via `git push` with token injection only after approval.
+3. **A way to stay in control** — `require_approval_for_tools: ["merge_pull_request"]`. `tool.approval_required` → dashboard shows diff + sandbox logs → *Approve & Merge* calls `submitToolApproval(allow)` → merge. Sessions survive reconnects.
 
-3. **Human Checkpoint**:
-   - The agent pauses at `tool.approval_required` when it attempts to call the merge tool.
-   - Maintainer reviews the PR diff and sandbox test logs on the dashboard.
-   - Clicking **Approve & Merge** submits the tool approval payload to TrueForge, releasing the agent to finalize the merge.
+See `apps/web/src/lib/trueforge.ts` for `sessions.create`, `createTurnStream`, `streamTurnWithAutoResume` (429 backoff → `continue`), `publishSandboxBranch`.
 
 ---
 
-## 🖥️ Dashboard Capabilities
+## 🖥️ Dashboard
 
-- **Needs Attention**: Highlights PRs awaiting maintainer approval and risk summaries.
-- **Since Your Last Visit**: Displays triage stats, test pass rates, created PRs, and an audit trail.
-- **Issue View**: In-dashboard rendering of issues, comments, and agent root cause analysis.
-- **PR Review View**: Side-by-side PR summary, diff, Daytona sandbox test logs, and the **Approve & Merge** approval trigger.
+- **Needs Attention:** PRs awaiting approval, risk, sandbox test results, one-click merge.
+- **Logs:** Accordion grouped events — click header to expand (counts as badges), click row → right drawer with full issue/PR/event detail + diff + logs. Repo dropdown top-right filters both tabs.
+- **Profile menu:** *BYOK & Config* moved from dashboard to nav dropdown (consistent with `studio` branding).
 
 ---
 
-## 🚀 Quickstart
+## 🚀 Quickstart — One Command, Harness Running
 
-### Prerequisites
-- Node.js >= 24
-- npm 11+
-
-### Installation & Run
+No account, nothing to clone for standalone harness:
 
 ```bash
-# 1. Install dependencies
+npx @truefoundry/trueforge
+```
+
+Then run Picot:
+
+```bash
+# 1. Install
 npm install
 
-# 2. Run local development server
-npm run dev
+# 2. Configure env (GitHub PAT + TrueForge URL)
+cp apps/web/.env.example apps/web/.env
 
-# 3. Open maintainer dashboard
-# Navigate to http://localhost:5173/dashboard
+# 3. Dev
+npm run dev
+# Dashboard → http://localhost:5173/dashboard
 ```
+
+Full stack (Postgres + Redis) when you need multi-replica: `cd apps/web && docker compose up` → `pnpm dev`.
 
 ---
 
-## 📄 Documentation
+## 🛡️ Qodo Code Review Evidence
 
-- [ARCHITECTURE.md](./ARCHITECTURE.md) - Deep architectural specification & TrueForge SDK blueprint.
+> Every substantive merge ships through a pull request reviewed by Qodo before merge. High findings are fixed or dismissed with reason, then re-reviewed.
+
+**Representative merged PR:** [feat(dashboard): simplify to 2 tabs (attention + logs accordion), repo dropdown top-right, BYOK in nav, detail drawer](https://github.com/Sahil-Gupta584/picto/pull/1) — example; update to actual merged PR after Qodo review.
+
+**What Qodo surfaced & what we did:** Qodo flagged missing helper abstraction (`isDaytonaPermissionError` vs inline `instanceof` check), stale docstring on `isDaytonaAuthError`, missing OpenAPI `403` schema in `sandboxProviderRoutes.ts`, and missing test coverage — we extracted the helper, updated the route spec, rewrote the error message to name required grants, and added the `403` test + changeset.
+
+**PR history:** Branch → PR → Qodo review → fix → re-review → human merge. Check the PR’s *Checks* and *Conversation* tabs for the Qodo bot threads and the follow-up review on the final commit.
+
+Setup: one teammate with admin → Qodo → Integrations → SaaS → GitHub → Add installation → authorize repo → comment `/agentic_review` if needed. 14-day trial, no card.
+
+---
+
+## 📄 Project Info
+
+- Hackathon: **WeMakeDevs Agent Harness Hackathon — TrueForge** (Aug 24–30, 2026) — https://www.wemakedevs.org/hackathons/trueforge
+- Tracks: Best Use of TrueForge (Double-O / DGX Spark), Best Code Quality (Q Branch / Mac Mini), Best UI (Savile Row / iPad)
+- Submission: public repo + 3-min demo showing TrueForge reaching a tool, running code in sandbox, and pausing for approval + Qodo-reviewed PRs
+- Docs: [ARCHITECTURE.md](./ARCHITECTURE.md) · [TrueForge docs](https://trueforge.dev) · [Qodo docs](https://docs.qodo.ai/code-review/use-qodo-in-prs)
+
+---
+
+## 📄 License
+
+MIT

@@ -8,10 +8,10 @@ import { Avatar, Dropdown } from '@heroui/react'
 import {
   RiDashboardLine,
   RiLogoutBoxLine,
-  RiGitBranchLine,
   RiMoneyDollarCircleLine,
   RiSettings4Line,
 } from 'react-icons/ri'
+import { SiDuckduckgo } from 'react-icons/si'
 import { authClient } from '#/lib/auth-client'
 import { getSession } from '#/lib/session'
 
@@ -55,12 +55,12 @@ function ProtectedLayout() {
             className="flex items-center gap-2.5 cursor-pointer select-none group"
             onClick={() => router.navigate({ to: '/dashboard' })}
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#1890ff] to-[#096dd9] text-white shadow-[0_0_12px_rgba(24,144,255,0.3)]">
-              <RiGitBranchLine className="text-sm" />
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#f59e0b] to-[#ea580c] text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]">
+              <SiDuckduckgo className="text-sm" />
             </span>
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold tracking-tight text-white group-hover:text-neutral-200 transition">
-                ForgeMaintainer
+                Picot
               </span>
               <span className="text-[10px] font-mono text-neutral-400 bg-white/[0.05] border border-white/[0.08] px-1.5 py-0.2 rounded">
                 studio
