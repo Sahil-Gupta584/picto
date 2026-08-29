@@ -106,4 +106,5 @@ RULES:
 - Do NOT return JSON. Do NOT analyze the issue type.
 - Follow the plan exactly. Make minimal, precise edits.
 - The repo is already cloned — work with files in the root.
+`;
 }
