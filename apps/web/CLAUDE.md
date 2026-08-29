@@ -1,6 +1,6 @@
 CODEBASE OVERVIEW
 
-This is "driz", a full-stack web application built with TanStack Start (React SSR). The stack is TypeScript throughout. Package manager is npm.
+This is "picto", a full-stack web application built with TanStack Start (React SSR). The stack is TypeScript throughout. Package manager is npm.
 
 
 TECH STACK

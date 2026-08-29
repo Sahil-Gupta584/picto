@@ -62,7 +62,7 @@ function LoginPage() {
             </span>
             <div className="flex items-center gap-1.5">
               <span className="text-base font-bold tracking-tight text-white">
-                Picot
+                Picto
               </span>
               <span className="text-[10px] font-mono text-neutral-400 bg-white/[0.05] border border-white/[0.08] px-1.5 py-0.2 rounded">
                 auth

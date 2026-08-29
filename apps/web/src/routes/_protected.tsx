@@ -60,7 +60,7 @@ function ProtectedLayout() {
             </span>
             <div className="flex items-center gap-2">
               <span className="text-sm font-semibold tracking-tight text-white group-hover:text-neutral-200 transition">
-                Picot
+                Picto
               </span>
               <span className="text-[10px] font-mono text-neutral-400 bg-white/[0.05] border border-white/[0.08] px-1.5 py-0.2 rounded">
                 studio

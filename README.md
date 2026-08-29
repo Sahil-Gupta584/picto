@@ -1,8 +1,8 @@
-# Picot — Autonomous GitHub Maintainer
+# Picto — Autonomous GitHub Maintainer
 
 > *Give your repo a maintainer that never sleeps.*
 
-**Tagline:** Picot triages issues, fixes them in a sandbox, and opens PRs — humans just approve.
+**Tagline:** Picto triages issues, fixes them in a sandbox, and opens PRs — humans just approve.
 
 **One-liner for judges:** An approval-gated code-review agent running on **TrueForge**. Every issue triggers a TrueForge session that reaches GitHub via MCP, runs generated fixes in a Daytona sandbox, pauses for human approval before merge, and can delegate to subagents. Every substantive change ships through a pull request reviewed by Qodo.
 
@@ -15,7 +15,7 @@ Demo flow (3 min):
 
 ## 🌟 Overview
 
-Picot is an end-to-end autonomous maintainer for GitHub repositories. When an issue is opened, a TrueForge agent:
+Picto is an end-to-end autonomous maintainer for GitHub repositories. When an issue is opened, a TrueForge agent:
 
 1. Investigates the codebase
 2. Edits code in an isolated **Daytona sandbox**
@@ -33,7 +33,7 @@ Built with TanStack Start + oRPC + Prisma 7 + `@truefoundry/trueforge-sdk`.
 
 ```
                                    +---------------------------------------+
-                                   |           Picot Dashboard             |
+                                   |           Picto Dashboard             |
                                    |   (Needs Attention / Logs + Drawer)   |
                                    +-------------------+-------------------+
                                                        | oRPC
@@ -91,7 +91,7 @@ No account, nothing to clone for standalone harness:
 npx @truefoundry/trueforge
 ```
 
-Then run Picot:
+Then run Picto:
 
 ```bash
 # 1. Install
