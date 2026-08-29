@@ -13,7 +13,7 @@ function IndexRedirect() {
   }, [navigate]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-950 text-slate-400 text-xs">
+    <div className="flex min-h-screen items-center justify-center bg-[#0d0e12] text-neutral-400 text-xs font-mono">
       Redirecting to Maintainer Dashboard...
     </div>
   );

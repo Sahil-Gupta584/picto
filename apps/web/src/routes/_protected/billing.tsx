@@ -1,8 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Card, Chip, Spinner } from '@heroui/react'
+import { Spinner } from '@heroui/react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { orpc } from '#/orpc/client'
 import { Button } from '#/components/Button'
+import { RiShieldCheckLine, RiFlashlightFill } from 'react-icons/ri'
 
 export const Route = createFileRoute('/_protected/billing')({
   component: BillingPage,
@@ -26,58 +27,64 @@ function BillingPage() {
   const isPro = subscription?.status === 'ACTIVE'
 
   return (
-    <div className="mx-auto max-w-4xl p-6">
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        Billing & Subscription
-      </h1>
+    <div className="mx-auto max-w-3xl p-4 sm:p-6 space-y-4 text-white font-sans antialiased">
+      <div className="space-y-0.5">
+        <h1 className="text-sm font-semibold tracking-tight text-white">
+          Workspace Billing & Plan
+        </h1>
+        <p className="text-xs text-neutral-400">
+          Manage autonomous maintainer execution quotas, sandbox compute, and tier access.
+        </p>
+      </div>
 
       {isLoading ? (
-        <div className="flex justify-center p-8">
-          <Spinner />
+        <div className="flex justify-center p-10">
+          <Spinner size="md" />
         </div>
       ) : (
-        <Card className="p-6">
-          <Card.Header className="flex justify-between items-center pb-4">
-            <div>
-              <Card.Title className="text-lg font-semibold">
-                Current Plan
-              </Card.Title>
-              <Card.Description className="text-sm text-gray-500">
-                Manage your subscription and billing details
-              </Card.Description>
+        <div className="rounded-2xl border border-white/[0.08] bg-[#15171d] p-6 shadow-xl space-y-4">
+          <div className="flex justify-between items-center pb-4 border-b border-white/[0.08]">
+            <div className="space-y-0.5">
+              <div className="text-sm font-semibold tracking-tight text-white flex items-center gap-2">
+                <RiFlashlightFill className="text-[#118af3]" /> Current Subscription
+              </div>
+              <p className="text-xs text-neutral-400">
+                Maintainer agents and repository quota allocation
+              </p>
             </div>
-            <Chip color={isPro ? 'accent' : 'default'}>
-              {isPro ? 'PRO' : 'FREE'}
-            </Chip>
-          </Card.Header>
+            <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-1 rounded border bg-emerald-500/10 text-emerald-400 border-emerald-500/25 shadow-sm">
+              {isPro ? 'PRO TIER' : 'FREE TIER'}
+            </span>
+          </div>
 
-          <Card.Content className="space-y-4 py-4">
-            <div className="flex items-baseline gap-2">
-              <span className="text-3xl font-bold text-gray-900">
-                {isPro ? '$10' : '$0'}
+          <div className="space-y-3 py-1">
+            <div className="flex items-baseline gap-1.5 font-mono">
+              <span className="text-2xl font-bold text-white">
+                {isPro ? '$20' : '$0'}
               </span>
-              <span className="text-gray-500">/ month</span>
+              <span className="text-xs text-neutral-500">/ month</span>
             </div>
 
-            <p className="text-sm text-gray-600">
+            <p className="text-xs text-neutral-300 leading-relaxed bg-[#0f1015] p-3.5 rounded-xl border border-white/[0.06]">
               {isPro
-                ? 'You are on the Pro plan with unlimited access to features.'
-                : 'Upgrade to Pro to unlock unlimited forms and advanced features.'}
+                ? 'Your workspace includes unlimited repository automation, continuous Daytona sandboxing, and priority model routing.'
+                : 'Free tier includes basic triage for 1 connected repository. Upgrade to Pro for unlimited repo maintainers and automatic PR verification.'}
             </p>
-          </Card.Content>
+          </div>
 
-          <Card.Footer>
+          <div className="border-t border-white/[0.08] pt-4 flex justify-end">
             {!isPro && (
               <Button
-                variant="primary"
+                className="tembo-btn-primary h-8 px-4 text-xs font-bold shadow-md"
                 isLoading={checkoutMutation.isPending}
                 onClick={() => checkoutMutation.mutate({ planId: 'pro' })}
+                startContent={<RiShieldCheckLine className="text-sm" />}
               >
                 Upgrade to Pro
               </Button>
             )}
-          </Card.Footer>
-        </Card>
+          </div>
+        </div>
       )}
     </div>
   )

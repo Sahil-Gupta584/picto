@@ -14,7 +14,7 @@ interface MyRouterContext {
 
 export const Route = createRootRouteWithContext<MyRouterContext>()({
   notFoundComponent: () => (
-    <div className="flex h-screen items-center justify-center font-sans text-lg text-slate-400 bg-slate-950">
+    <div className="flex h-screen items-center justify-center font-sans text-sm text-neutral-400 bg-[#0d0e12]">
       Page Not Found
     </div>
   ),
@@ -33,6 +33,19 @@ export const Route = createRootRouteWithContext<MyRouterContext>()({
     ],
     links: [
       {
+        rel: 'preconnect',
+        href: 'https://fonts.googleapis.com',
+      },
+      {
+        rel: 'preconnect',
+        href: 'https://fonts.gstatic.com',
+        crossOrigin: 'anonymous',
+      },
+      {
+        rel: 'stylesheet',
+        href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap',
+      },
+      {
         rel: 'stylesheet',
         href: appCss,
       },
@@ -47,7 +60,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body suppressHydrationWarning className="bg-slate-950 text-slate-100">
+      <body suppressHydrationWarning className="bg-[#0d0e12] text-[#ffffff] font-sans antialiased selection:bg-[#118af3]/30 selection:text-[#ffffff]">
         {children}
         <Scripts />
       </body>

@@ -1,0 +1,28 @@
+# Custom model catalog for ForgeMaintainer
+# Only Gemini 3.1 and 3.5 Flash Lite models
+# Override the shipped catalog by setting: MODEL_CATALOG_PATH=model-catalog.yaml
+
+providers:
+  - type: google-gemini
+    logo: https://assets.production.truefoundry.com/google-gemini.svg
+    models:
+      - model_id: gemini-3.1-flash-lite
+        name: gemini-3-1-flash-lite
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - minimal
+            - low
+            - medium
+            - high
+      - model_id: gemini-3.5-flash-lite
+        name: gemini-3-5-flash-lite
+        properties:
+          context_length: 1048576
+          max_output_tokens: 65536
+          reasoning_efforts:
+            - minimal
+            - low
+            - medium
+            - high

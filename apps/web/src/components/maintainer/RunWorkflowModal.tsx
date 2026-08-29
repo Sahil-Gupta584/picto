@@ -1,9 +1,11 @@
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { RiPlayCircleLine } from 'react-icons/ri';
+import { RiPlayCircleLine, RiCloseLine } from 'react-icons/ri';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { orpc } from '#/orpc/client';
+import { Button } from '#/components/Button';
+import { Input } from '#/components/Input';
 
 const workflowSchema = z.object({
   issueUrl: z
@@ -54,50 +56,62 @@ export function RunWorkflowModal({ isOpen, onClose, onSuccess }: RunWorkflowModa
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-5">
-        <div className="flex items-center justify-between border-b border-slate-800 pb-3">
-          <h3 className="text-base font-bold text-slate-100 flex items-center gap-2">
-            <RiPlayCircleLine className="text-cyan-400 text-lg" /> Run Agent on GitHub Issue
-          </h3>
-          <button onClick={onClose} className="text-slate-400 hover:text-white text-lg font-bold cursor-pointer">
-            ✕
-          </button>
-        </div>
-
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-300 mb-1">GitHub Issue URL</label>
-            <input
-              type="text"
-              placeholder="https://github.com/owner/repo/issues/42"
-              {...register('issueUrl')}
-              className="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 text-xs text-slate-100 focus:border-cyan-500 focus:outline-none font-mono"
-            />
-            {errors.issueUrl && (
-              <p className="mt-1 text-[11px] text-red-400">{errors.issueUrl.message}</p>
-            )}
-            <p className="mt-1 text-[11px] text-slate-500">
-              The agent will triage the issue, clone the repo in a sandbox, reproduce the bug, and propose a pull request!
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-mock-rise">
+      <div className="w-full max-w-md border border-white/[0.1] bg-[#15171d] shadow-2xl p-6 flex flex-col rounded-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#118af3]/15 text-[#118af3] border border-[#118af3]/25">
+                <RiPlayCircleLine className="text-sm" />
+              </span>
+              <h2 className="text-sm font-semibold tracking-tight text-white">
+                Run Agent on GitHub Issue
+              </h2>
+            </div>
+            <p className="text-xs text-neutral-400">
+              Trigger autonomous root-cause triage, sandbox verification, and PR creation.
             </p>
           </div>
 
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              type="button"
+          <button
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition"
+            onClick={onClose}
+          >
+            <RiCloseLine className="text-lg" />
+          </button>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 pt-4">
+          <div className="space-y-1">
+            <Input
+              label="GitHub Issue URL"
+              placeholder="https://github.com/owner/repo/issues/42"
+              {...register('issueUrl')}
+              isInvalid={!!errors.issueUrl}
+              errorMessage={errors.issueUrl?.message}
+              description="The maintainer agent will triage the issue, test in Daytona sandbox, and draft a pull request."
+            />
+          </div>
+
+          {/* Footer Actions */}
+          <div className="flex justify-end gap-2 pt-4 border-t border-white/[0.08]">
+            <Button
+              variant="secondary"
+              className="tembo-btn-secondary h-8 px-4 text-xs"
               onClick={onClose}
-              className="rounded-lg border border-slate-700 bg-slate-800 px-4 py-2 text-xs font-medium text-slate-300 hover:bg-slate-700 transition cursor-pointer"
             >
               Cancel
-            </button>
+            </Button>
 
-            <button
+            <Button
               type="submit"
-              disabled={startWorkflowMutation.isPending}
-              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-cyan-500 to-blue-600 px-5 py-2 text-xs font-bold text-white shadow-md transition disabled:opacity-50 cursor-pointer"
+              isLoading={startWorkflowMutation.isPending}
+              className="tembo-btn-primary h-8 px-4 text-xs font-bold shadow-md"
             >
-              {startWorkflowMutation.isPending ? 'Starting Agent...' : 'Start Investigation'}
-            </button>
+              Start Investigation
+            </Button>
           </div>
         </form>
       </div>

@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Card, Chip, Spinner } from '@heroui/react'
+import { Spinner } from '@heroui/react'
 import { useQuery } from '@tanstack/react-query'
 import { orpc } from '#/orpc/client'
 import { Button } from '#/components/Button'
@@ -16,11 +16,11 @@ function PricingPage() {
   const isPro = subscription?.status === 'ACTIVE'
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
-      <div className="text-center mb-8">
-        <h1 className="text-3xl font-bold">Simple, transparent pricing</h1>
-        <p className="text-gray-500 mt-2">
-          Choose the plan that fits your needs
+    <div className="mx-auto max-w-4xl px-4 py-12 text-white font-sans antialiased">
+      <div className="text-center mb-8 space-y-1">
+        <h1 className="text-xl font-semibold tracking-tight text-white">Simple, transparent pricing</h1>
+        <p className="text-xs text-neutral-400">
+          Choose the plan that fits your autonomous maintainer workload
         </p>
       </div>
 
@@ -30,52 +30,54 @@ function PricingPage() {
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
-          <Card className="p-6">
-            <Card.Header>
-              <Card.Title className="text-xl font-bold">Free</Card.Title>
-              <Card.Description>Great for getting started</Card.Description>
-            </Card.Header>
-            <Card.Content className="my-4">
-              <div className="text-3xl font-bold">$0</div>
-              <p className="text-sm text-gray-500">Forever free</p>
-            </Card.Content>
-            <Card.Footer>
-              <Link to="/dashboard" className="w-full">
-                <Button className="w-full" variant="secondary">
+          <div className="rounded-2xl border border-white/[0.08] bg-[#15171d] p-6 shadow-xl space-y-4">
+            <div className="border-b border-white/[0.08] pb-3">
+              <h2 className="text-sm font-semibold tracking-tight text-white">Free</h2>
+              <p className="text-xs text-neutral-400 mt-0.5">Great for individual open-source repositories</p>
+            </div>
+            <div className="my-4 space-y-1">
+              <div className="text-2xl font-bold font-mono text-white">$0</div>
+              <p className="text-xs text-neutral-400">Forever free for single repository</p>
+            </div>
+            <div className="border-t border-white/[0.08] pt-4">
+              <Link to="/dashboard" className="w-full block">
+                <Button className="tembo-btn-secondary w-full justify-center" variant="secondary">
                   Current Plan
                 </Button>
               </Link>
-            </Card.Footer>
-          </Card>
-
-          <Card className="p-6 relative border-2 border-indigo-500">
-            <div className="absolute top-4 right-4">
-              <Chip color="accent">Popular</Chip>
             </div>
-            <Card.Header>
-              <Card.Title className="text-xl font-bold">Pro</Card.Title>
-              <Card.Description>For power users and teams</Card.Description>
-            </Card.Header>
-            <Card.Content className="my-4">
-              <div className="text-3xl font-bold">$10</div>
-              <p className="text-sm text-gray-500">per month</p>
-            </Card.Content>
-            <Card.Footer>
+          </div>
+
+          <div className="rounded-2xl border border-[#118af3]/40 bg-[#15171d] p-6 shadow-2xl space-y-4 relative">
+            <div className="absolute top-4 right-4">
+              <span className="text-[10px] font-mono font-bold uppercase px-2.5 py-0.5 rounded border bg-[#118af3]/15 text-[#118af3] border-[#118af3]/30 shadow-sm">
+                Popular
+              </span>
+            </div>
+            <div className="border-b border-white/[0.08] pb-3">
+              <h2 className="text-sm font-semibold tracking-tight text-white">Pro</h2>
+              <p className="text-xs text-neutral-400 mt-0.5">For power maintainers and organizations</p>
+            </div>
+            <div className="my-4 space-y-1">
+              <div className="text-2xl font-bold font-mono text-white">$20</div>
+              <p className="text-xs text-neutral-400">per month with unlimited sandboxes</p>
+            </div>
+            <div className="border-t border-white/[0.08] pt-4">
               {isPro ? (
-                <Link to="/dashboard" className="w-full">
-                  <Button className="w-full" variant="secondary">
+                <Link to="/dashboard" className="w-full block">
+                  <Button className="tembo-btn-secondary w-full justify-center" variant="secondary">
                     Manage Subscription
                   </Button>
                 </Link>
               ) : (
-                <Link to="/dashboard" className="w-full">
-                  <Button className="w-full" variant="primary">
+                <Link to="/billing" className="w-full block">
+                  <Button className="tembo-btn-primary w-full justify-center shadow-md" variant="primary">
                     Upgrade to Pro
                   </Button>
                 </Link>
               )}
-            </Card.Footer>
-          </Card>
+            </div>
+          </div>
         </div>
       )}
     </div>

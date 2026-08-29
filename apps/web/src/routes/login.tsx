@@ -1,10 +1,10 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { Card, Separator } from '@heroui/react'
+import { Separator } from '@heroui/react'
 import { useState } from 'react'
 import { authClient } from '#/lib/auth-client'
 import { Button } from '#/components/Button'
 import { Input } from '#/components/Input'
-import { RiGoogleFill, RiGiftFill, RiArrowLeftLine } from 'react-icons/ri'
+import { RiGoogleFill, RiGitBranchLine, RiArrowLeftLine, RiMailSendLine } from 'react-icons/ri'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -45,73 +45,82 @@ function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-md p-6">
-        <Card.Header className="flex-col items-start gap-1 pb-4">
+    <div className="flex min-h-screen items-center justify-center bg-[#0d0e12] p-4 text-[#ffffff] font-sans antialiased">
+      <div className="w-full max-w-sm border border-white/[0.1] bg-[#15171d] p-6 shadow-2xl rounded-2xl">
+        <div className="flex flex-col items-start gap-1 pb-4">
           <Link
-            to="/"
-            className="mb-2 flex items-center gap-1 text-xs text-gray-500 hover:text-gray-800 transition"
+            to="/dashboard"
+            className="mb-2 flex items-center gap-1 text-xs text-neutral-400 hover:text-white transition"
           >
-            <RiArrowLeftLine /> Back to home
+            <RiArrowLeftLine /> Back to dashboard
           </Link>
 
-          <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-amber-500 text-white shadow-sm">
-              <RiGiftFill className="text-lg" />
+          <div className="flex items-center gap-2 mt-1">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#1890ff] to-[#096dd9] text-white shadow-[0_0_12px_rgba(24,144,255,0.3)]">
+              <RiGitBranchLine className="text-base" />
             </span>
-            <span className="text-xl font-bold tracking-tight text-gray-900">
-              GiftForm
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-base font-bold tracking-tight text-white">
+                ForgeMaintainer
+              </span>
+              <span className="text-[10px] font-mono text-neutral-400 bg-white/[0.05] border border-white/[0.08] px-1.5 py-0.2 rounded">
+                auth
+              </span>
+            </div>
           </div>
 
-          <Card.Title className="mt-2 text-xl font-semibold">
-            Sign in to your account
-          </Card.Title>
-          <Card.Description className="text-sm text-gray-500">
-            Welcome back! Choose how you'd like to sign in.
-          </Card.Description>
-        </Card.Header>
+          <h2 className="mt-3 text-sm font-semibold tracking-tight text-white">
+            Sign in to Workspace
+          </h2>
+          <p className="text-xs text-neutral-400">
+            Supervise repositories with autonomous AI maintainers.
+          </p>
+        </div>
 
-        <Card.Content className="space-y-4 pt-2">
+        <div className="space-y-4 pt-1">
           <Button
             type="button"
-            className="w-full justify-center"
+            className="tembo-btn-secondary w-full justify-center h-9 text-xs font-medium"
             variant="secondary"
             isLoading={isGoogleLoading}
             onClick={handleGoogle}
             startContent={
               !isGoogleLoading && (
-                <RiGoogleFill className="text-lg text-red-500" />
+                <RiGoogleFill className="text-sm text-rose-400" />
               )
             }
           >
             {isGoogleLoading
-              ? 'Connecting to Google...'
+              ? 'Connecting...'
               : 'Continue with Google'}
           </Button>
 
-          <div className="flex items-center gap-3">
-            <Separator className="flex-1" />
-            <span className="text-xs font-medium uppercase tracking-wider text-gray-400">
-              or
+          <div className="flex items-center gap-3 my-1">
+            <Separator className="flex-1 bg-white/[0.08]" />
+            <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">
+              or email
             </span>
-            <Separator className="flex-1" />
+            <Separator className="flex-1 bg-white/[0.08]" />
           </div>
 
           {magicSent ? (
-            <div className="rounded-lg bg-emerald-50 p-4 text-center text-sm text-emerald-800 border border-emerald-200">
-              <p className="font-semibold">Check your email!</p>
-              <p className="mt-1 text-emerald-700">
-                We sent a login link to <strong>{email}</strong>. Click it to
-                sign in.
+            <div className="rounded-xl bg-[#0f1015] p-4 text-center text-xs text-emerald-400 border border-emerald-500/25 space-y-1.5 animate-mock-rise">
+              <div className="flex justify-center">
+                <span className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-base">
+                  <RiMailSendLine />
+                </span>
+              </div>
+              <p className="font-semibold text-xs text-white">Check your inbox</p>
+              <p className="text-[11px] text-neutral-400">
+                We sent a login link to <strong className="text-emerald-400 font-mono">{email}</strong>.
               </p>
             </div>
           ) : (
-            <form onSubmit={handleMagicLink} className="space-y-3">
+            <form onSubmit={handleMagicLink} className="space-y-3.5">
               <Input
                 type="email"
-                label="Email address"
-                placeholder="you@example.com"
+                label="Email Address"
+                placeholder="maintainer@example.com"
                 value={email}
                 onChange={(e: any) => setEmail(e.target.value)}
                 required
@@ -119,16 +128,15 @@ function LoginPage() {
 
               <Button
                 type="submit"
-                className="w-full justify-center"
-                variant="primary"
+                className="tembo-btn-primary w-full justify-center h-9 text-xs shadow-md"
                 isLoading={isMagicLoading}
               >
-                Send Magic Link
+                Send Magic Sign-in Link
               </Button>
             </form>
           )}
-        </Card.Content>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }

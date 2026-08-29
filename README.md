@@ -1,3 +1,15 @@
+
+🏆 Hackathon Angle
+
+Tagline: "An AI maintainer that triages, fixes, and creates PRs — so humans can focus on what matters."
+
+Demo Flow:
+1. Show spam issue → auto-closed in 30 seconds
+2. Show bug issue → auto-triaged, fixed, PR created in 2 minutes
+3. Show PR with reasoning → "The agent decided this was safe to merge because..."
+
+Judges see: A working agent, not a demo.
+
 # Autonomous GitHub Repository Maintainer
 
 An autonomous GitHub maintenance agent and maintainer dashboard built on **TrueForge** agent harness for the **TrueForge Hackathon**.

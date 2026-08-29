@@ -33,32 +33,32 @@ function OfferFormPage() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <p className="text-gray-500">Loading form...</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#141414] text-[#999999] text-xs">
+        <p>Loading form...</p>
       </div>
     )
   }
 
   if (!form) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <p className="text-gray-500">Form not found or inactive.</p>
+      <div className="flex min-h-screen items-center justify-center bg-[#141414] text-[#999999] text-xs">
+        <p>Form not found or inactive.</p>
       </div>
     )
   }
 
   if (submitted) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-        <Card className="w-full max-w-md p-6 text-center">
-          <Card.Header>
-            <Card.Title className="text-2xl font-bold text-emerald-600">
+      <div className="flex min-h-screen items-center justify-center bg-[#141414] p-4 text-[#ffffff] font-sans antialiased">
+        <Card className="tembo-panel w-full max-w-md p-6 text-center bg-[#141414] border border-[#212121] rounded-2xl">
+          <Card.Header className="pb-2 border-b border-[#212121]">
+            <Card.Title className="text-sm font-semibold tracking-[-0.1px] text-[#29c239]">
               Thank You!
             </Card.Title>
           </Card.Header>
-          <Card.Content>
-            <p className="text-gray-600">
-              Your gift request has been submitted.
+          <Card.Content className="pt-4">
+            <p className="text-xs text-[#999999]">
+              Your submission request has been received.
             </p>
           </Card.Content>
         </Card>
@@ -73,31 +73,31 @@ function OfferFormPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
-      <Card className="w-full max-w-lg p-6">
-        <Card.Header className="pb-4">
-          <Card.Title className="text-2xl font-bold text-gray-900">
-            Gift Offer Form
+    <div className="flex min-h-screen items-center justify-center bg-[#141414] p-4 text-[#ffffff] font-sans antialiased">
+      <Card className="tembo-panel w-full max-w-lg p-6 bg-[#141414] border border-[#212121] rounded-2xl">
+        <Card.Header className="pb-4 border-b border-[#212121]">
+          <Card.Title className="text-sm font-semibold tracking-[-0.1px] text-[#ffffff]">
+            Repository Maintainer Request
           </Card.Title>
         </Card.Header>
 
-        <Card.Content>
+        <Card.Content className="pt-4">
           <form onSubmit={handleSubmit} className="space-y-4">
             <Select
-              label="Select your gift"
-              placeholder="Choose a gift..."
+              label="Select option"
+              placeholder="Choose option..."
               value={selectedGiftId}
               onChange={(val: any) => setSelectedGiftId(val)}
               required
             >
-              <SelectItem key="gift-1" value="gift-1">
-                Sample Gift
+              <SelectItem key="opt-1" value="opt-1">
+                Standard Maintainer Action
               </SelectItem>
             </Select>
 
             <Input
               label="Your Name"
-              placeholder="John Doe"
+              placeholder="Maintainer Name"
               value={recipientName}
               onChange={(e: any) => setRecipientName(e.target.value)}
               required
@@ -106,7 +106,7 @@ function OfferFormPage() {
             <Input
               type="email"
               label="Your Email"
-              placeholder="john@example.com"
+              placeholder="maintainer@example.com"
               value={recipientEmail}
               onChange={(e: any) => setRecipientEmail(e.target.value)}
               required
@@ -122,10 +122,10 @@ function OfferFormPage() {
             <Button
               type="submit"
               variant="primary"
-              className="w-full justify-center"
+              className="tembo-btn-primary w-full justify-center shadow-sm"
               isLoading={submitMutation.isPending}
             >
-              Claim Gift
+              Submit Request
             </Button>
           </form>
         </Card.Content>

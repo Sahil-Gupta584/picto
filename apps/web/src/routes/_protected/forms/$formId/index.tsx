@@ -1,5 +1,5 @@
 import { createFileRoute, useRouter } from '@tanstack/react-router'
-import { Card, Chip, Tooltip } from '@heroui/react'
+import { Card, Tooltip } from '@heroui/react'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -70,8 +70,8 @@ function FormDetailsPage() {
 
   if (isLoading) {
     return (
-      <div className="mx-auto max-w-4xl p-6">
-        <p className="text-gray-500">Loading form details...</p>
+      <div className="mx-auto max-w-4xl p-6 text-[#999999]">
+        <p>Loading form details...</p>
       </div>
     )
   }
@@ -86,55 +86,56 @@ function FormDetailsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl p-6 space-y-6">
+    <div className="mx-auto max-w-4xl p-6 space-y-6 text-[#ffffff] font-sans antialiased">
       <Button
         variant="secondary"
-        size="sm"
+        className="tembo-btn-secondary h-8 px-3 text-xs"
         onClick={() => router.navigate({ to: '/dashboard' })}
         startContent={<RiArrowLeftLine />}
       >
         Back to Dashboard
       </Button>
 
-      <Card className="p-6">
-        <Card.Header className="flex justify-between items-start pb-4">
+      <Card className="tembo-panel p-6 bg-[#141414] border border-[#212121] rounded-2xl">
+        <Card.Header className="flex justify-between items-start pb-4 border-b border-[#212121]">
           <div>
-            <Card.Title className="text-2xl font-bold">Form Details</Card.Title>
-            <Card.Description className="text-gray-500 mt-1">
-              Manage form gifts and options
+            <Card.Title className="text-sm font-semibold tracking-[-0.1px] text-[#ffffff]">Form Details</Card.Title>
+            <Card.Description className="text-xs text-[#999999] mt-0.5">
+              Manage form options and parameters
             </Card.Description>
           </div>
-          <Chip color="accent">Active</Chip>
+          <span className="text-[10px] font-mono font-bold uppercase px-2 py-0.5 rounded border bg-[#29c239]/10 text-[#29c239] border-[#29c239]/25">
+            Active
+          </span>
         </Card.Header>
       </Card>
 
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <h2 className="text-xl font-semibold flex items-center gap-2">
-            Gifts <Chip size="sm">{gifts.length}</Chip>
+          <h2 className="text-sm font-semibold tracking-[-0.1px] flex items-center gap-2 text-[#ffffff]">
+            Options <span className="text-[10px] font-mono text-[#999999] bg-[#181818] border border-[#212121] px-1.5 py-0.2 rounded">{gifts.length}</span>
           </h2>
           <Button
-            variant="primary"
-            size="sm"
+            className="tembo-btn-primary h-8 px-3 text-xs shadow-sm"
             onClick={() => setShowAddGift(!showAddGift)}
             startContent={<RiAddLine />}
           >
-            Add Gift
+            Add Option
           </Button>
         </div>
 
         {showAddGift && (
-          <Card className="p-6 border-2 border-indigo-100">
-            <Card.Header className="pb-4">
-              <Card.Title className="text-lg font-semibold">
-                New Gift Option
+          <Card className="tembo-panel p-6 border border-[#212121] bg-[#181818] rounded-2xl">
+            <Card.Header className="pb-4 border-b border-[#212121]">
+              <Card.Title className="text-sm font-semibold tracking-[-0.1px] text-[#ffffff]">
+                New Option
               </Card.Title>
             </Card.Header>
-            <Card.Content>
+            <Card.Content className="pt-4">
               <form onSubmit={handleSubmit(onAddGift)} className="space-y-4">
                 <Input
-                  label="Gift Name"
-                  placeholder="e.g. Free T-Shirt"
+                  label="Option Name"
+                  placeholder="e.g. Free Tier Setup"
                   {...register('name')}
                   errorMessage={errors.name?.message}
                   isInvalid={!!errors.name}
@@ -158,19 +159,20 @@ function FormDetailsPage() {
                   errorMessage={errors.quantity?.message}
                   isInvalid={!!errors.quantity}
                 />
-                <div className="flex justify-end gap-2 pt-2">
+                <div className="flex justify-end gap-2 pt-2 border-t border-[#212121]">
                   <Button
                     variant="secondary"
+                    className="tembo-btn-secondary h-8 px-3 text-xs"
                     onClick={() => setShowAddGift(false)}
                   >
                     Cancel
                   </Button>
                   <Button
                     type="submit"
-                    variant="primary"
+                    className="tembo-btn-primary h-8 px-4 text-xs font-bold shadow-sm"
                     isLoading={addGiftMutation.isPending}
                   >
-                    Save Gift
+                    Save Option
                   </Button>
                 </div>
               </form>
@@ -180,36 +182,37 @@ function FormDetailsPage() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           {gifts.map((gift) => (
-            <Card key={gift.id} className="p-4 flex flex-col justify-between">
-              <Card.Header className="flex justify-between items-start pb-2">
-                <Card.Title className="font-semibold text-gray-900">
+            <Card key={gift.id} className="tembo-panel p-4 flex flex-col justify-between bg-[#141414] border border-[#212121] rounded-2xl">
+              <Card.Header className="flex justify-between items-start pb-2 border-b border-[#212121]">
+                <Card.Title className="font-semibold text-xs text-[#ffffff]">
                   {gift.name}
                 </Card.Title>
                 <Tooltip>
                   <Tooltip.Trigger>
-                    <button className="text-gray-400 hover:text-gray-600">
+                    <button className="text-[#999999] hover:text-[#ffffff]">
                       <RiInformationLine />
                     </button>
                   </Tooltip.Trigger>
-                  <Tooltip.Content className="text-xs p-2">
-                    Gift ID: {gift.id}
+                  <Tooltip.Content className="text-xs p-2 bg-[#181818] border border-[#212121] text-[#ffffff] rounded-lg">
+                    ID: {gift.id}
                   </Tooltip.Content>
                 </Tooltip>
               </Card.Header>
 
               {gift.description && (
-                <Card.Content className="text-sm text-gray-500 py-2">
+                <Card.Content className="text-xs text-[#999999] py-2">
                   {gift.description}
                 </Card.Content>
               )}
 
-              <Card.Footer className="flex justify-between items-center pt-4 border-t border-gray-100">
-                <span className="text-xs text-gray-500">
-                  Qty: <strong>{gift.quantity}</strong>
+              <Card.Footer className="flex justify-between items-center pt-4 border-t border-[#212121]">
+                <span className="text-xs text-[#999999]">
+                  Qty: <strong className="text-[#ffffff]">{gift.quantity}</strong>
                 </span>
                 <Button
                   size="sm"
-                  variant="danger"
+                  variant="ghost"
+                  className="h-7 text-[#f15555] hover:bg-[#f15555]/10 px-2"
                   onClick={() => deleteGiftMutation.mutate({ title: gift.id })}
                   isLoading={deleteGiftMutation.isPending}
                 >
