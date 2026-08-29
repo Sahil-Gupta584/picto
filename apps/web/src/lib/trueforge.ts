@@ -43,7 +43,7 @@ function buildSupervisorPrompt(repoFullName: string): string {
 ## Step 1: Check if Already Implemented
 Before classifying, check if the requested change already exists:
 - Search for the feature in the codebase
-- Check if similar functionality exists (e.g. PR template already asks for issue numbers)
+- Check if similar functionality exists
 - Check existing issues/PRs for duplicate requests
 - If already implemented → decision: reject with reasoning
 
