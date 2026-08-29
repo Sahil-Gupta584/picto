@@ -28,6 +28,131 @@ export interface TrueForgeSession {
   createdAt: string;
 }
 
+// ─── Prompt Builders ─────────────────────────────────────────────────────────
+
+/** Supervisor prompt — triage ONLY. Do NOT implement anything. */
+function buildSupervisorPrompt(repoFullName: string): string {
+  return `You are a Triage Agent. Your ONLY job is to classify the GitHub issue.
+
+## Instructions
+1. Read issue.md in your working directory for the full issue details
+2. The repository is ${repoFullName}
+3. Explore the codebase using your tools (list_dir, read_file, grep_search)
+4. Classify the issue and return a JSON decision
+
+## Triage Categories
+
+### Bug Fix (category: bug → decision: fix)
+- Clear error or unexpected behavior
+- Steps to reproduce provided
+- Affects existing functionality
+- Can be fixed with code changes
+
+### Feature Request (category: feature_request → decision: clarify or reject — NEVER fix)
+- New functionality or improvement suggestion
+- CRITICAL: Feature requests must NEVER use decision: fix
+- If it's a good idea: decision: clarify (ask maintainer for approval)
+- If it's already implemented or unnecessary: decision: reject
+- Check if the feature already exists (search codebase)
+- Check if similar functionality exists (e.g. PR template already asks for issue numbers)
+
+### Question/Support (category: question → decision: clarify)
+- User needs help using the project
+- Not a bug or feature request
+
+### Duplicate (category: duplicate → decision: reject)
+- Search for similar issues before responding
+- Use search_issues tool to find related issues
+- If duplicate found, set duplicateOf to the original issue number
+
+### Spam/Invalid (category: spam → decision: reject)
+- Gibberish, promotional content, or unrelated to the project
+- Close immediately with spam reasoning
+
+## Output Format
+Return ONLY a JSON object (no markdown wrappers, no explanation before or after):
+
+{
+  "category": "bug" | "feature_request" | "question" | "duplicate" | "spam",
+  "decision": "fix" | "clarify" | "reject",
+  "reasoning": "Why this decision.",
+  "confidence": "high" | "medium" | "low",
+  "duplicateOf": "issue number or null",
+  "directPr": true | false,
+  "directPrReasoning": "true = low-risk fix, safe to auto-merge. false = needs human review before merge.",
+  "plan": {
+    "context": "What the issue is solving.",
+    "findings": "Root cause and files involved.",
+    "steps": ["1. Edit [file]...", "2. Run [test]..."]
+  },
+  "replyComment": "Comment for CLARIFY/REJECT."
+}
+
+## RULES
+- You are ONLY classifying. Do NOT implement anything.
+- Do NOT edit files. Do NOT create commits.
+- Do NOT run tests. Do NOT modify code.
+- Return ONLY the JSON. Nothing else.`;
+}
+
+/** Developer prompt — implementation ONLY. Do NOT triage or classify. */
+function buildDeveloperPrompt(params: {
+  issueNumber: number;
+  title: string;
+  repoFullName: string;
+  plan: { context: string; findings: string; steps: string[] };
+}): string {
+  return `You are a Developer Agent. Your ONLY job is to implement the fix.
+
+## The Issue
+Issue #${params.issueNumber}: ${params.title}
+Repository: ${params.repoFullName}
+
+## Implementation Plan (from Triage Agent)
+Context: ${params.plan.context}
+Findings: ${params.plan.findings}
+
+Steps to implement:
+${params.plan.steps.join('\n')}
+
+## Instructions
+1. Read issue.md for full context
+2. Implement the fix according to the plan above
+3. Run 'git diff' to review ALL your changes before committing
+4. If any change is unnecessary or unrelated, revert it with 'git checkout -- <file>'
+5. Only commit files that directly address the issue
+6. Do NOT commit lockfiles, build artifacts, or unrelated changes
+7. Verify changes with test suites if available
+8. Commit with a descriptive message (e.g., "fix: resolve <what> (<where>)")
+9. Do NOT push to remote or create PRs
+
+## RULES
+- You are ONLY implementing. Do NOT classify or triage.
+- Do NOT return JSON. Do NOT analyze the issue type.
+- Follow the plan exactly. Make minimal, precise edits.
+- The repo is already cloned — work with files in the root.`;
+}
+
+// ─── Triage Decision Type ─────────────────────────────────────────────────────
+
+interface TriageDecision {
+  category: 'bug' | 'feature_request' | 'question' | 'duplicate' | 'spam';
+  decision: 'fix' | 'clarify' | 'reject';
+  reasoning: string;
+  confidence: 'high' | 'medium' | 'low';
+  duplicateOf: string | null;
+  directPr: boolean;
+  directPrReasoning: string;
+  plan: {
+    context: string;
+    findings: string;
+    steps: string[];
+  };
+  replyComment: string;
+}
+
+// ─── Service Class ────────────────────────────────────────────────────────────
+
 export class TrueForgeMaintainerService {
   private client: TrueForge;
   private baseUrl: string;
@@ -42,7 +167,6 @@ export class TrueForgeMaintainerService {
   }
 
   normalizeModelName(raw?: string): string {
-    return 'google-gemini/gemini-3-5-flash-lite';
     if (!raw) return 'google-gemini/gemini-3-1-flash-lite';
     const lower = raw.toLowerCase();
     if (lower.includes('lite') || lower.includes('3.1-flash') || lower.includes('3-1-flash')) {
@@ -54,6 +178,7 @@ export class TrueForgeMaintainerService {
     if (lower.includes('pro') || lower.includes('preview') || lower.includes('3.1')) {
       return 'google-gemini/gemini-3-1-pro-preview';
     }
+    return 'google-gemini/gemini-3-1-flash-lite';
   }
 
   /**
@@ -65,6 +190,87 @@ export class TrueForgeMaintainerService {
    * a user.message turn, the agent's own `exec` tool runs inside bwrap and can see
    * everything it creates.
    */
+
+  // ─── Triage Helpers ─────────────────────────────────────────────────────────
+
+  /** Parse triage JSON from supervisor response */
+  private parseTriageJSON(response: string): TriageDecision {
+    const jsonMatch = response.match(/```json\s*(\{[\s\S]*?\})\s*```/) || response.match(/(\{[\s\S]*\})/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+      return {
+        category: parsed.category || 'bug',
+        decision: parsed.decision || 'fix',
+        reasoning: parsed.reasoning || '',
+        confidence: parsed.confidence || 'low',
+        duplicateOf: parsed.duplicateOf || null,
+        directPr: parsed.directPr ?? false,
+        directPrReasoning: parsed.directPrReasoning || '',
+        plan: parsed.plan || { context: '', findings: '', steps: [] },
+        replyComment: parsed.replyComment || '',
+      };
+    }
+    throw new Error('No valid JSON found in triage response');
+  }
+
+  /** Handle REJECT decision — close issue with reasoning */
+  private async handleReject(
+    params: { issueNumber: number; repoFullName: string; githubToken?: string },
+    decision: TriageDecision,
+    workflow: any
+  ): Promise<void> {
+    const [owner, repoName] = params.repoFullName.split('/');
+    let commentBody = '';
+    let eventTitle = '';
+
+    if (decision.category === 'spam') {
+      commentBody = decision.replyComment || `🤖 This issue has been identified as spam and has been closed.\n\n**Reason**: ${decision.reasoning}`;
+      await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+      console.log(`🔒 [AI Orchestrator] Spam issue #${params.issueNumber} closed automatically`);
+      eventTitle = 'Issue rejected (spam)';
+    } else if (decision.category === 'duplicate' && decision.duplicateOf) {
+      commentBody = decision.replyComment || `🤖 This issue is a duplicate of #${decision.duplicateOf} and has been closed.\n\n**Reason**: ${decision.reasoning}`;
+      await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+      console.log(`🔒 [AI Orchestrator] Duplicate issue #${params.issueNumber} closed (duplicate of #${decision.duplicateOf})`);
+      eventTitle = `Issue closed as duplicate of #${decision.duplicateOf}`;
+    } else {
+      commentBody = decision.replyComment || `🤖 Issue closed.\n\n**Reason**: ${decision.reasoning}`;
+      await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+      console.log(`🔒 [AI Orchestrator] Issue #${params.issueNumber} closed`);
+      eventTitle = 'Issue rejected';
+    }
+
+    await prisma.maintainerWorkflow.update({
+      where: { id: workflow.id },
+      data: {
+        status: 'failed',
+        prDecisionReasoning: `🤖 Triage: REJECT (${decision.category}). ${decision.reasoning}`,
+        events: { create: { type: 'issue_rejected', title: eventTitle, detail: commentBody } },
+      },
+    });
+  }
+
+  /** Handle CLARIFY decision — comment on issue */
+  private async handleClarify(
+    params: { issueNumber: number; repoFullName: string; githubToken?: string },
+    decision: TriageDecision,
+    workflow: any
+  ): Promise<void> {
+    const [owner, repoName] = params.repoFullName.split('/');
+    const commentBody = decision.replyComment || `🤖 Clarification requested.\n\n**Reason**: ${decision.reasoning}`;
+    await githubService.addIssueComment(owner, repoName, params.issueNumber, commentBody, params.githubToken);
+
+    await prisma.maintainerWorkflow.update({
+      where: { id: workflow.id },
+      data: {
+        status: 'awaiting_input',
+        prDecisionReasoning: `🤖 Triage: CLARIFY (${decision.category}). ${decision.reasoning}`,
+        events: { create: { type: 'clarification_requested', title: 'Clarification requested', detail: commentBody } },
+      },
+    });
+    console.log(`💬 [AI Orchestrator] Clarification requested on issue #${params.issueNumber}`);
+  }
+
   private async prepareSandbox(params: {
     repoFullName: string;
     sessionId: string;
@@ -427,103 +633,20 @@ ${triage.assignee ? `- **Assigned To**: @${triage.assignee}` : ''}
       });
     }
 
-    // 5. Single session: triage → compaction → implement
-    let triagedAction: 'FIX' | 'CLARIFY' | 'REJECT' = 'FIX';
-    let reasoning = '';
-    let subAgentPlanObj: any = null;
-    let replyComment = '';
-    let directPr = false;
-    let directPrReasoning = '';
-    let isSpam = false;
-    let triageCategory = 'bug';
-    let duplicateOf: string | null = null;
+    // 5. Single session: setup → supervisor triage → developer implement
+    let decision: TriageDecision = {
+      category: 'bug',
+      decision: 'fix',
+      reasoning: '',
+      confidence: 'low',
+      duplicateOf: null,
+      directPr: false,
+      directPrReasoning: '',
+      plan: { context: '', findings: '', steps: [] },
+      replyComment: '',
+    };
 
-    const rootFiles = await githubService.getRepositoryRootFiles(owner, repoName, params.githubToken);
-    const rootFilesList = rootFiles.join('\n');
-
-    // Combined instructions: agent triages first, then implements if FIX
-    const combinedInstructions = `You are an Autonomous GitHub Maintainer Agent with two phases:
-
-## Phase 1: Triage
-Investigate the reported GitHub issue. Read issue.md in your working directory for details. Explore the codebase using your filesystem tools (list_dir, read_file, grep_search) to understand the root cause.
-
-## Triage Categories
-Classify the issue into one of these categories:
-
-### 1. Bug Fix (action: FIX)
-- Clear error or unexpected behavior
-- Steps to reproduce provided
-- Affects existing functionality
-- Can be fixed with code changes
-
-### 2. Feature Request (action: CLARIFY or REJECT — NEVER FIX)
-- New functionality or improvement suggestion
-- CRITICAL: Feature requests must NEVER use action: FIX
-- If it's a good idea: action: CLARIFY (ask maintainer for approval first)
-- If it's already implemented or unnecessary: action: REJECT
-- Check if the feature already exists (search codebase)
-- Check if it's already planned (look at existing issues/PRs)
-- Check if similar functionality exists (e.g. PR template already asks for issue numbers)
-- If it's a good idea but not a bug, respond with CLARIFY asking for more context
-- If it's already implemented or duplicates existing functionality, REJECT with explanation
-
-### 3. Question/Support (action: CLARIFY)
-- User needs help using the project
-- Not a bug or feature request
-- Respond with helpful information or close as "not a bug"
-
-### 4. Duplicate (action: REJECT)
-- Search for similar issues before responding
-- Use search_issues tool to find related issues
-- If duplicate found, close with reference to original issue
-
-### 5. Spam/Invalid (action: REJECT)
-- Gibberish, promotional content, or unrelated to the project
-- Close immediately with spam reasoning
-
-## Before Implementing (FIX)
-1. Verify the bug is reproducible
-2. Check if a fix already exists in a PR or branch
-3. Check if the fix might break other functionality
-4. Only implement if confident the fix is correct and minimal
-
-## Using GitHub MCP Tools
-You have access to GitHub MCP tools. Use them to:
-- Comment on issues: add_issue_comment
-- Close issues: update_pull_request (for PRs) or add_issue_comment + let backend close
-- Search for duplicates: search_issues
-- Read files: get_file_contents
-- Create PRs: create_pull_request
-
-## Output Format
-Output your triage decision as a SINGLE JSON object (no markdown wrappers):
-{
-  "action": "FIX" | "CLARIFY" | "REJECT",
-  "category": "bug" | "feature_request" | "question" | "duplicate" | "spam",
-  "reasoning": "Brief explanation of findings.",
-  "isSpam": true | false,
-  "duplicateOf": "issue number if duplicate, null otherwise",
-  "directPr": true | false,
-  "directPrReasoning": "true = low-risk fix, safe to auto-merge. false = needs human review before merge.",
-  "subAgentPlan": {
-    "issueContext": "What the issue is solving.",
-    "analysisFindings": "Root cause and files involved.",
-    "executionSteps": ["1. Edit [file]...", "2. Run [test]..."]
-  },
-  "replyComment": "Comment for CLARIFY/REJECT. For spam, explain why it was closed. For duplicates, reference the original issue."
-}
-
-## Phase 2: Implementation (only if action=FIX)
-After outputting the JSON, wait for further instructions. You will be told to implement the fix.
-When implementing:
-1. Make minimal, precise file edits per the plan.
-2. Run 'git diff' to review ALL your changes before committing. If any change is unnecessary or unrelated to the issue, revert it with 'git checkout -- <file>'.
-3. Only commit files that directly address the issue. Do NOT commit lockfiles, build artifacts, or unrelated changes.
-4. Verify changes with test suites.
-5. Commit with a descriptive message. Do NOT push or open PRs.
-6. The repo is already cloned — work with files in the root.`;
-
-    console.log(`🤖 [AI Orchestrator] Creating single session at ${this.baseUrl}...`);
+    console.log(`🤖 [AI Orchestrator] Creating session at ${this.baseUrl}...`);
     let sessionId = '';
     try {
       const { data: session } = (await this.client.sessions.create({
@@ -533,7 +656,7 @@ When implementing:
               name: this.normalizeModelName(params.modelName),
               params: { max_tokens: 4096, temperature: 0.1 },
             },
-            instructions: combinedInstructions,
+            instructions: 'You are an AI agent. Follow the instructions given to you in each turn.',
             config: {
               sandbox: { enabled: true },
               require_approval_for_tools: ['merge_pull_request'],
@@ -547,90 +670,57 @@ When implementing:
       sessionId = session.id;
       await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { trueforgeSessionId: sessionId } });
 
-      // Step A: Clone repo + write issue.md inside sandbox
+      // Turn 1: Setup — clone repo + write issue.md
       const issueContent = `# GitHub Issue #${params.issueNumber}\n\n**Repository**: ${params.repoFullName}\n**Title**: ${params.title}\n**Author**: ${params.author}\n\n## Description\n${params.body}`;
       await this.prepareSandbox({ repoFullName: params.repoFullName, sessionId, token: params.githubToken, issueFileContent: issueContent });
 
-      // Step B: Triage turn
-      const triagePrompt = `Read issue.md in your working directory for the full issue details (title, description, author, etc.).\n\nThe repository is ${params.repoFullName}.\n\nRoot-level files:\n${rootFilesList}\n\nExplore the codebase using your tools (list_dir, read_file, grep_search) to understand context. Then make your triage decision and return the JSON.`;
-
-      console.log(`⏳ [AI Orchestrator] Running triage turn...`);
+      // Turn 2: Supervisor Triage — classify ONLY, do NOT implement
+      const supervisorPrompt = buildSupervisorPrompt(params.repoFullName);
+      console.log(`⏳ [AI Orchestrator] Running supervisor triage...`);
       let triageResponse = '';
-      const triageResult = await this.streamTurnWithAutoResume(sessionId, triagePrompt, (event) => {
+      const triageResult = await this.streamTurnWithAutoResume(sessionId, supervisorPrompt, (event) => {
         if (event.type === 'model.message.delta') triageResponse += event.content || '';
         if (event.type === 'model.message' && typeof event.content === 'string') triageResponse = event.content;
         if (event.type === 'turn.done' && event.state?.output?.content && typeof event.state.output.content === 'string') triageResponse = event.state.output.content;
       });
       triageResponse = triageResult.accumulatedText || triageResponse;
-      console.log('ℹ️ [Triage] Response:', triageResponse);
+      console.log('ℹ️ [Supervisor] Response:', triageResponse);
 
       // Parse triage JSON
-      const jsonMatch = triageResponse.match(/```json\s*(\{[\s\S]*?\})\s*```/) || triageResponse.match(/(\{[\s\S]*\})/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-        triagedAction = parsed.action || 'FIX';
-        reasoning = parsed.reasoning || '';
-        subAgentPlanObj = parsed.subAgentPlan || null;
-        replyComment = parsed.replyComment || '';
-        directPr = parsed.directPr ?? false;
-        directPrReasoning = parsed.directPrReasoning || '';
-        isSpam = parsed.isSpam ?? false;
-        triageCategory = parsed.category || 'bug';
-        duplicateOf = parsed.duplicateOf || null;
-      }
+      decision = this.parseTriageJSON(triageResponse);
+      console.log(`📋 [Supervisor] Category: ${decision.category}, Decision: ${decision.decision}, Confidence: ${decision.confidence}`);
+
     } catch (e: any) {
-      console.warn('Triage failed, defaulting to FIX:', e);
-      reasoning = `Triage failed: ${e.message || String(e)}`;
+      console.warn('Triage failed, defaulting to fix:', e);
+      decision.reasoning = `Triage failed: ${e.message || String(e)}`;
     }
 
-    // 6. Dispatch triage actions
-    if (triagedAction === 'CLARIFY') {
-      const commentBody = replyComment || `🤖 **Maintainer Update**: Clarification requested. ${reasoning}`;
-      await githubService.addIssueComment(owner, repoName, params.issueNumber, commentBody, params.githubToken);
-      const updatedWorkflow = await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { status: 'awaiting_input', prDecisionReasoning: `🤖 Triage: CLARIFY. ${reasoning}`, events: { create: { type: 'clarification_requested', title: 'Clarification requested on GitHub', detail: commentBody } } } });
-      return { workflow: updatedWorkflow, triage, prNum: null, sessionId };
+    // 6. Dispatch based on decision
+    if (decision.decision === 'clarify') {
+      await this.handleClarify(params, decision, workflow);
+      return { workflow, triage, prNum: null, sessionId };
     }
 
-    if (triagedAction === 'REJECT') {
-      let commentBody = '';
-      let eventTitle = '';
-      
-      if (isSpam) {
-        // Auto-close spam issues with reasoning
-        commentBody = replyComment || `🤖 **Maintainer Update**: This issue has been identified as spam and has been closed.\n\n**Reason**: ${reasoning}`;
-        await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
-        console.log(`🔒 [AI Orchestrator] Spam issue #${params.issueNumber} closed automatically`);
-        eventTitle = `Issue rejected on GitHub (spam)`;
-      } else if (duplicateOf) {
-        // Close as duplicate with reference to original issue
-        commentBody = replyComment || `🤖 **Maintainer Update**: This issue is a duplicate of #${duplicateOf} and has been closed.\n\n**Reason**: ${reasoning}`;
-        await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
-        console.log(`🔒 [AI Orchestrator] Duplicate issue #${params.issueNumber} closed (duplicate of #${duplicateOf})`);
-        eventTitle = `Issue closed as duplicate of #${duplicateOf}`;
-      } else {
-        // Regular reject - add comment and close
-        commentBody = replyComment || `🤖 **Maintainer Update**: Issue closed. ${reasoning}`;
-        await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
-        console.log(`🔒 [AI Orchestrator] Issue #${params.issueNumber} closed`);
-        eventTitle = `Issue rejected on GitHub`;
-      }
-      
-      const updatedWorkflow = await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { status: 'failed', prDecisionReasoning: `🤖 Triage: REJECT (${triageCategory}${isSpam ? ', spam' : ''}${duplicateOf ? `, duplicate of #${duplicateOf}` : ''}). ${reasoning}`, events: { create: { type: 'issue_rejected', title: eventTitle, detail: commentBody } } } });
-      return { workflow: updatedWorkflow, triage, prNum: null, sessionId };
+    if (decision.decision === 'reject') {
+      await this.handleReject(params, decision, workflow);
+      return { workflow, triage, prNum: null, sessionId };
     }
 
-    // FIX: Implementation turn — compact context + implement in one turn
-    console.log(`🤖 [AI Orchestrator] Triage: FIX. Starting implementation...`);
+    // 7. FIX: Developer implementation (same session, no re-cloning)
+    console.log(`🤖 [AI Orchestrator] Supervisor decided FIX. Starting developer implementation...`);
+    const developerPrompt = buildDeveloperPrompt({
+      issueNumber: params.issueNumber,
+      title: params.title,
+      repoFullName: params.repoFullName,
+      plan: decision.plan,
+    });
 
-    const implPrompt = `Triage complete. Now implement the fix.\n\nForget the triage analysis above. Here is your implementation plan:\n\nIssue: #${params.issueNumber} — ${params.title}\nContext: ${subAgentPlanObj?.issueContext || params.title}\nFindings: ${subAgentPlanObj?.analysisFindings || reasoning}\nSteps:\n${Array.isArray(subAgentPlanObj?.executionSteps) ? subAgentPlanObj.executionSteps.join('\n') : '1. Investigate codebase\n2. Implement fix'}\n\nThe repository is already cloned in your working directory. Read issue.md for full context. Do NOT run git clone. Make minimal edits, verify with tests, and commit.`;
-
-    // Stream implementation turn and consume developer session events (tool calls, etc.)
     console.log(`⏳ [AI Orchestrator] Developer implementation stream started...`);
-    this.consumeDeveloperAgentSession(sessionId, implPrompt, workflow.id)
-      .then(() => console.log('✅ [AI Orchestrator] Developer session completed successfully'))
-      .catch((err) => console.error('❌ [AI Orchestrator] Error in consumeDeveloperAgentSession:', err?.message || err));
+    this.consumeDeveloperAgentSession(sessionId, developerPrompt, workflow.id)
+      .then(() => console.log('✅ [AI Orchestrator] Developer implementation completed'))
+      .catch((err) => console.error('❌ [AI Orchestrator] Developer error:', err?.message || err));
 
-    const updatedWorkflow = await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { status: 'investigating', prDecisionReasoning: `🤖 Triage: FIX. ${reasoning}`, directPr, directPrReasoning } });
+    const updatedWorkflow = await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { status: 'investigating', prDecisionReasoning: `🤖 Triage: FIX (${decision.category}). ${decision.reasoning}`, directPr: decision.directPr, directPrReasoning: decision.directPrReasoning } });
     return { workflow: updatedWorkflow, triage, prNum: null, sessionId };
   }
 
