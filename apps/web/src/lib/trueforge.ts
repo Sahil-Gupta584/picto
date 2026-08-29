@@ -557,8 +557,20 @@ ${triage.assignee ? `- **Assigned To**: @${triage.assignee}` : ''}
       triageResponse = triageResult.accumulatedText || triageResponse;
       console.log('ℹ️ [Supervisor] Response:', triageResponse);
 
-      // Parse triage JSON
-      decision = this.parseTriageJSON(triageResponse);
+      // Parse triage JSON with retry
+      try {
+        decision = this.parseTriageJSON(triageResponse);
+      } catch (parseErr) {
+        console.warn('⚠️ [Supervisor] Invalid JSON, retrying with correction prompt...');
+        const correctionPrompt = `You returned invalid JSON. Please return ONLY a valid JSON object matching this exact format:\n\n{\n  "category": "bug" | "feature_request" | "question" | "duplicate" | "spam",\n  "decision": "fix" | "clarify" | "reject",\n  "reasoning": "Why this decision.",\n  "confidence": "high" | "medium" | "low",\n  "duplicateOf": "issue number or null",\n  "directPr": true | false,\n  "directPrReasoning": "true = safe to auto-merge. false = needs human review.",\n  "plan": {\n    "context": "What the issue is solving.",\n    "findings": "What you found in the codebase.",\n    "steps": ["1. Edit...", "2. Run..."]\n  },\n  "replyComment": "Comment for CLARIFY/REJECT."\n}\n\nDo NOT include any text before or after the JSON. Return ONLY the JSON object.`;
+        let retryResponse = '';
+        await this.streamTurnWithAutoResume(sessionId, correctionPrompt, (event) => {
+          if (event.type === 'model.message.delta') retryResponse += event.content || '';
+          if (event.type === 'model.message' && typeof event.content === 'string') retryResponse = event.content;
+          if (event.type === 'turn.done' && event.state?.output?.content && typeof event.state.output.content === 'string') retryResponse = event.state.output.content;
+        });
+        decision = this.parseTriageJSON(retryResponse);
+      }
       console.log(`📋 [Supervisor] Category: ${decision.category}, Decision: ${decision.decision}, Confidence: ${decision.confidence}`);
 
     } catch (e: any) {
