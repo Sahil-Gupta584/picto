@@ -191,7 +191,7 @@ function DashboardComponent() {
 
   const hasActiveWorkflow = (issues as any[]).some((i: any) => i.status === 'investigating');
 
-  const { data: events = [] } = useQuery({
+  const { data: events = [], isLoading: isLoadingEvents } = useQuery({
     ...orpc.maintainer.getSinceLastVisit.queryOptions(),
     refetchInterval: hasActiveWorkflow ? 3000 : false,
   } as any);
@@ -432,7 +432,7 @@ function DashboardComponent() {
                   <Accordion.Heading>
                     <Accordion.Trigger>
                       <span className="flex items-center gap-2 text-sm font-semibold">
-                        <RiTimeLine /> Picto's Activity · {(filteredEvents as any[]).length} events
+                        <RiTimeLine /> Picto's Activity
                       </span>
                       <Accordion.Indicator />
                     </Accordion.Trigger>
@@ -440,7 +440,20 @@ function DashboardComponent() {
                   <Accordion.Panel>
                     <Accordion.Body>
                       <div className="space-y-2">
-                        {(filteredEvents as any[]).length === 0 ? (
+                        {isLoadingEvents ? (
+                          <div className="space-y-3 px-3 py-2">
+                            {[1,2,3].map(i => (
+                              <div key={i} className="flex items-start gap-3 animate-pulse">
+                                <div className="mt-1.5 shrink-0 h-2.5 w-2.5 rounded-full bg-[var(--surface-tertiary)]" />
+                                <div className="flex-1 space-y-1.5">
+                                  <div className="h-3.5 w-2/3 rounded bg-[var(--surface-tertiary)]" />
+                                  <div className="h-2.5 w-16 rounded bg-[var(--surface-tertiary)]" />
+                                  <div className="h-3 w-full rounded bg-[var(--surface-tertiary)]" />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (filteredEvents as any[]).length === 0 ? (
                           <div className="text-xs text-center py-6 text-muted">No activity yet</div>
                         ) : (filteredEvents as any[]).slice(0, 20).map((evt: any) => {
                           const typeColor: Record<string, string> = {
