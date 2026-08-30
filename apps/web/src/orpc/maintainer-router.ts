@@ -101,8 +101,15 @@ export const getRepos = authed.handler(async ({ context }) => {
 
 export const getIssues = authed.handler(async ({ context }) => {
   try {
+    const settings = await getUserSettings(context.user.id)
+    const lastVisitAt = settings.lastVisitAt
+
     const workflows = await prisma.maintainerWorkflow.findMany({
-      where: { state: 'open', repo: { userId: context.user.id } },
+      where: {
+        state: 'open',
+        repo: { userId: context.user.id },
+        ...(lastVisitAt ? { createdAt: { gt: lastVisitAt } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       include: { repo: true },
     })
@@ -114,8 +121,13 @@ export const getIssues = authed.handler(async ({ context }) => {
       title: w.title,
       body: w.body,
       author: w.author,
-      status: w.status as 'open' | 'investigating' | 'awaiting_approval' | 'merged' | 'rejected',
+      status: w.state === 'closed'
+        ? (w.status === 'merged' ? 'merged' : 'closed')
+        : w.status === 'awaiting_approval' ? 'pr open'
+        : w.status === 'investigating' ? 'investigating'
+        : 'open',
       state: w.state as 'open' | 'closed',
+      prNumber: w.prNumber ?? null,
       createdAt: w.createdAt.toISOString(),
       events: [],
       analysis: {
@@ -133,10 +145,14 @@ export const getIssues = authed.handler(async ({ context }) => {
 
 export const getPRReviews = authed.handler(async ({ context }) => {
   try {
+    const settings = await getUserSettings(context.user.id)
+    const lastVisitAt = settings.lastVisitAt
+
     const workflows = await prisma.maintainerWorkflow.findMany({
       where: {
         prNumber: { not: null },
         repo: { userId: context.user.id },
+        ...(lastVisitAt ? { createdAt: { gt: lastVisitAt } } : {}),
       },
       orderBy: { createdAt: 'desc' },
       include: { repo: true },
@@ -198,7 +214,6 @@ export const getNeedsAttention = authed.handler(async ({ context }) => {
       select: { repoId: true, issueNumber: true, prNumber: true },
     })
 
-    // Build lookup maps keyed by repoId+number
     const byIssue = new Map<string, number | null>()
     const byPR = new Map<string, number | null>()
     for (const w of workflows) {
@@ -206,15 +221,39 @@ export const getNeedsAttention = authed.handler(async ({ context }) => {
       if (w.prNumber) byPR.set(`${w.repoId}:${w.prNumber}`, w.issueNumber)
     }
 
-    return comments.map((c) => ({
+    const commentItems = comments.map((c) => ({
       ...c,
-      linkedPrNumber: c.issueNumber
-        ? (byIssue.get(`${c.repoId}:${c.issueNumber}`) ?? null)
-        : null,
-      linkedIssueNumber: c.prNumber
-        ? (byPR.get(`${c.repoId}:${c.prNumber}`) ?? null)
-        : null,
+      kind: 'comment' as const,
+      linkedPrNumber: c.issueNumber ? (byIssue.get(`${c.repoId}:${c.issueNumber}`) ?? null) : null,
+      linkedIssueNumber: c.prNumber ? (byPR.get(`${c.repoId}:${c.prNumber}`) ?? null) : null,
     }))
+
+    // Also surface workflows awaiting clarification input
+    const clarifyWorkflows = await prisma.maintainerWorkflow.findMany({
+      where: { status: 'awaiting_input', repo: { userId: context.user.id } },
+      orderBy: { updatedAt: 'desc' },
+      include: { repo: true },
+    })
+
+    const clarifyItems = clarifyWorkflows.map((w) => ({
+      id: w.id,
+      kind: 'clarify' as const,
+      repoId: w.repoId,
+      issueNumber: w.issueNumber,
+      prNumber: w.prNumber ?? null,
+      author: w.author,
+      body: w.prDecisionReasoning || 'Agent needs clarification before proceeding.',
+      isPRReady: false,
+      shouldNotify: true,
+      notified: false,
+      aiReasoning: null,
+      linkedPrNumber: null,
+      linkedIssueNumber: null,
+      createdAt: w.updatedAt,
+      updatedAt: w.updatedAt,
+    }))
+
+    return [...clarifyItems, ...commentItems]
   } catch (err) {
     console.error('Database query error in getNeedsAttention:', err)
     return []
@@ -246,6 +285,7 @@ export const getSinceLastVisit = base.handler(async () => {
     const events = await prisma.maintainerEvent.findMany({
       orderBy: { timestamp: 'desc' },
       take: 20,
+      include: { workflow: { include: { repo: true } } },
     })
 
     return events.map((e) => ({
@@ -255,6 +295,10 @@ export const getSinceLastVisit = base.handler(async () => {
       detail: e.detail,
       description: e.detail,
       timestamp: e.timestamp.toISOString(),
+      workflowId: e.workflowId,
+      issueNumber: e.workflow?.issueNumber ?? null,
+      prNumber: e.workflow?.prNumber ?? null,
+      repoFullName: e.workflow?.repo?.fullName ?? null,
     }))
   } catch (err) {
     console.error('Database query error in getSinceLastVisit:', err)
@@ -406,9 +450,19 @@ export const getSettings = authed.handler(async ({ context }) => {
     anthropicApiKey: settings.anthropicApiKey || '',
     openaiApiKey: settings.openaiApiKey || '',
     githubToken: settings.githubToken || '',
-      selectedModel: resolveModelKey(settings.selectedModel),
+    selectedModel: resolveModelKey(settings.selectedModel),
     trueforgeBaseUrl: settings.trueforgeBaseUrl || 'http://localhost:8790',
+    lastVisitAt: settings.lastVisitAt?.toISOString() ?? null,
+    discordGuildId: settings.discordGuildId || '',
   }
+})
+
+export const markVisited = authed.handler(async ({ context }) => {
+  await prisma.maintainerSettings.update({
+    where: { userId: context.user.id },
+    data: { lastVisitAt: new Date() },
+  })
+  return { ok: true }
 })
 
 export const updateSettings = authed
@@ -420,6 +474,7 @@ export const updateSettings = authed
       githubToken: z.string().optional(),
       selectedModel: z.string().optional(),
       trueforgeBaseUrl: z.string().optional(),
+      discordGuildId: z.string().optional(),
     })
   )
   .handler(async ({ input, context }) => {
@@ -433,6 +488,7 @@ export const updateSettings = authed
         githubToken: input.githubToken,
         selectedModel: resolveModelKey(input.selectedModel),
         trueforgeBaseUrl: input.trueforgeBaseUrl || 'http://localhost:8790',
+        discordGuildId: input.discordGuildId,
       },
       update: {
         ...(input.geminiApiKey !== undefined && { geminiApiKey: input.geminiApiKey }),
@@ -441,6 +497,7 @@ export const updateSettings = authed
         ...(input.githubToken !== undefined && { githubToken: input.githubToken }),
         ...(input.selectedModel !== undefined && { selectedModel: input.selectedModel }),
         ...(input.trueforgeBaseUrl !== undefined && { trueforgeBaseUrl: input.trueforgeBaseUrl }),
+        ...(input.discordGuildId !== undefined && { discordGuildId: input.discordGuildId }),
       },
     })
 
@@ -666,6 +723,51 @@ export const rejectPR = authed
     return { success: true, pr: updated }
   })
 
+export const closeIssue = authed
+  .input(z.object({ workflowId: z.string() }))
+  .handler(async ({ input, context }) => {
+    const workflow = await prisma.maintainerWorkflow.findFirst({
+      where: { id: input.workflowId, repo: { userId: context.user.id } },
+      include: { repo: true },
+    })
+    if (!workflow) throw new Error('Workflow not found')
+    const userSettings = await getUserSettings(context.user.id)
+    const [owner, repo] = workflow.repo.fullName.split('/')
+    await githubService.closeIssue(owner, repo, workflow.issueNumber, '🤖 Closed via Picto dashboard.', userSettings.githubToken || undefined)
+    await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { status: 'failed', state: 'closed' } })
+    return { success: true }
+  })
+
+export const closePR = authed
+  .input(z.object({ workflowId: z.string() }))
+  .handler(async ({ input, context }) => {
+    const workflow = await prisma.maintainerWorkflow.findFirst({
+      where: { id: input.workflowId, repo: { userId: context.user.id } },
+      include: { repo: true },
+    })
+    if (!workflow || !workflow.prNumber) throw new Error('Workflow or PR not found')
+    const userSettings = await getUserSettings(context.user.id)
+    const [owner, repo] = workflow.repo.fullName.split('/')
+    await githubService.closePR(owner, repo, workflow.prNumber, '🤖 Closed via Picto dashboard.', userSettings.githubToken || undefined)
+    await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { status: 'rejected', state: 'closed' } })
+    return { success: true }
+  })
+
+export const postIssueComment = authed
+  .input(z.object({ workflowId: z.string(), body: z.string().min(1) }))
+  .handler(async ({ input, context }) => {
+    const workflow = await prisma.maintainerWorkflow.findFirst({
+      where: { id: input.workflowId, repo: { userId: context.user.id } },
+      include: { repo: true },
+    })
+    if (!workflow) throw new Error('Workflow not found')
+    const userSettings = await getUserSettings(context.user.id)
+    const [owner, repo] = workflow.repo.fullName.split('/')
+    const ok = await githubService.addIssueComment(owner, repo, workflow.issueNumber, input.body, userSettings.githubToken || undefined)
+    if (!ok) throw new Error('Failed to post comment')
+    return { success: true }
+  })
+
 export const getLivePrDiff = authed
   .input(z.object({ repoFullName: z.string(), prNumber: z.number() }))
   .handler(async ({ input, context }) => {
@@ -689,6 +791,9 @@ export const maintainerRouter = {
   markCommentNotified,
   dismissComment,
   getLivePrDiff,
+  postIssueComment,
+  closeIssue,
+  closePR,
   getSinceLastVisit,
   getAvailableGitHubRepos,
   addRepo,
@@ -697,6 +802,7 @@ export const maintainerRouter = {
   toggleRepoStatus,
   getSettings,
   updateSettings,
+  markVisited,
   startWorkflow,
   approvePrCreation,
   approvePR,

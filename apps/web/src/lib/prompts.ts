@@ -1,5 +1,5 @@
 /**
- * Agent Prompts — All prompts for the two-agent architecture in one place.
+ * Agent Prompts - All prompts for the two-agent architecture in one place.
  *
  * Supervisor: triage only → returns JSON decision
  * Developer: implement only → follows the plan from supervisor
@@ -19,7 +19,7 @@ export function buildSetupPrompt(params: {
     '3. `git remote add origin ' + params.gitUrl + '`',
     '4. `git fetch origin --depth=50` (if this fails, try `git fetch origin`)',
     '5. `git checkout -f -B main origin/main` (if this fails, try `git checkout -f -B master origin/master`)',
-    '6. Verify with `ls` — you should see the repository source files and a .git directory.',
+    '6. Verify with `ls` - you should see the repository source files and a .git directory.',
     '',
     'IMPORTANT: Do NOT skip any step. Execute them in order. Report the output of each step.',
   ].join('\n');
@@ -38,7 +38,7 @@ export function buildSupervisorPrompt(repoFullName: string): string {
 
 1. Read issue.md for the full issue details
 2. The repository is ${repoFullName}
-3. Before deciding, explore the repository to check if the issue describes something that already exists — read CONTRIBUTING.md, list the .github/ directory, read any PR/issue templates, and grep for related patterns.
+3. Before deciding, explore the repository to check if the issue describes something that already exists - read CONTRIBUTING.md, list the .github/ directory, read any PR/issue templates, and grep for related patterns.
 4. If the issue describes something that already exists in the codebase, decision must be reject.
 5. Return ONLY a JSON object
 
@@ -60,13 +60,31 @@ export function buildSupervisorPrompt(repoFullName: string): string {
 
 RULES:
 - Do NOT implement anything. Do NOT edit files. Do NOT create commits.
-- If the core concept of the issue is already addressed by existing conventions, templates, or docs, decision must be reject — check if the underlying idea already exists, don't look for exact format matches.
+- If the core concept of the issue is already addressed by existing conventions, templates, or docs, decision must be reject - check if the underlying idea already exists, don't look for exact format matches.
 - category: feature_request must never result in decision: fix.
 - If you're not confident, set confidence: "low" and decision: "clarify"
 - Only return the JSON. Nothing else.`;
 }
 
-// ─── Developer Prompt (Implementation Only) ─────────────────────────────────
+// ─── Delegation Prompt (Turn 3 - supervisor delegates to subagent) ───────────
+
+export function buildDelegationPrompt(params: {
+  issueNumber: number;
+  title: string;
+  repoFullName: string;
+  plan: { context: string; findings: string; steps: string[] };
+}): string {
+  const developerInstructions = buildDeveloperPrompt(params);
+  return `Your triage decision was "fix". Now delegate the implementation to a subagent using the create_sub_agent tool.
+
+Call create_sub_agent with the following instructions for the subagent:
+
+---
+${developerInstructions}
+---
+
+IMPORTANT: Call create_sub_agent now. Do not implement anything yourself.`;
+}
 
 export function buildDeveloperPrompt(params: {
   issueNumber: number;
@@ -90,8 +108,8 @@ ${params.plan.steps.join('\n')}
 ## Instructions
 1. Read issue.md for full context
 2. Read CONTRIBUTING.md and AGENTS.md for repo conventions (test layout, changeset, commit style). List .changeset/ if it exists.
-3. Read neighboring source/tests for patterns — e.g. if adding a status code, read the route file and its test to mirror style.
-4. Implement the fix according to the plan above — prefer helpers over inline checks, update docstrings, and update OpenAPI/route schemas if you add a status code.
+3. Read neighboring source/tests for patterns - e.g. if adding a status code, read the route file and its test to mirror style.
+4. Implement the fix according to the plan above - prefer helpers over inline checks, update docstrings, and update OpenAPI/route schemas if you add a status code.
 5. Run 'git diff' to review ALL your changes before committing
 6. If any change is unnecessary or unrelated, revert it with 'git checkout -- <file>'
 7. Only commit files that directly address the issue
@@ -105,6 +123,6 @@ RULES:
 - You are ONLY implementing. Do NOT classify or triage.
 - Do NOT return JSON. Do NOT analyze the issue type.
 - Follow the plan exactly. Make minimal, precise edits.
-- The repo is already cloned — work with files in the root.
+- The repo is already cloned - work with files in the root.
 `;
 }

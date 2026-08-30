@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 @import '@heroui/styles';
 /*
- * GitHub — as provided (alpha)
+ * GitHub - as provided (alpha)
  * sourceUrl: https://github.com
  * background #000000 / surface #0d1117 / primary #8dd6ff
  */
@@ -23,13 +23,15 @@
   --default: #0d1117;
   --default-foreground: #ffffff;
   --field-background: #0d1117;
-  --field-border: #30363d;
+  --button-bg: #212830;
+  --button-fg: #ffffff;
+  --field-border: rgba(61, 68, 77, 0.7);
   --field-foreground: #ffffff;
   --field-placeholder: #9198a1;
   --focus: #8dd6ff;
   --foreground: #ffffff;
   --muted: #9198a1;
-  --overlay: #010409;
+  --overlay: #050c19;
   --overlay-foreground: #ffffff;
   --scrollbar: #21262d;
   --segment: #0d1117;
@@ -37,7 +39,7 @@
   --separator: #21262d;
   --success: #3fb950;
   --success-foreground: #0d1117;
-  --surface: #010409;
+  --surface: #0d1117;
   --surface-foreground: #ffffff;
   --surface-secondary: #0d1117;
   --surface-secondary-foreground: #ffffff;
@@ -45,9 +47,9 @@
   --surface-tertiary-foreground: #ffffff;
   --warning: #d29922;
   --warning-foreground: #000000;
-  --accent-soft-foreground: #8dd6ff;
+  --accent-soft-foreground: #5c6164;
 
-  --radius: 12px;
+  --radius: 3px;
   --field-radius: 8px;
   --font-sans: "Mona Sans", MonaSansFallback, -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   --font-mono: "Mona Sans Mono", monospace;
@@ -59,23 +61,43 @@ html, body {
   font-family: var(--font-sans);
 }
 
-/* default/ghost interactive elements: transparent bg, card bg on hover */
-[data-hover] { background-color: #010409 !important; }
-button:hover, [role="button"]:hover, [role="option"]:hover, [role="menuitem"]:hover {
-  background-color: #010409;
+/* list-box items hover */
+[data-slot="list-box-item"][data-hovered="true"] {
+  background-color: #2e323a !important;
 }
 
 /* Tabs: visible pill container + active state */
-[data-slot="tab-list"] {
+[data-slot="tabs-list"] {
   background-color: #0d1117 !important;
   border: 1px solid rgba(61, 68, 77, 0.7) !important;
   padding: 3px !important;
   border-radius: 10px !important;
 }
-[data-slot="tab"][data-selected="true"] {
-  background-color: #21262d !important;
+[data-slot="tabs-tab"] {
   border-radius: 8px !important;
+  background: transparent !important;
+  color: var(--muted) !important;
 }
-[data-slot="tab"] {
-  border-radius: 8px !important;
+[data-slot="tabs-tab"][data-selected="true"] {
+  background-color: #2e343d !important;
+  color: var(--foreground) !important;
+}
+[data-slot="tabs-tab"][data-hovered="true"]:not([data-selected="true"]) {
+  background-color: #161b22 !important;
+  color: var(--foreground) !important;
+}
+
+.accordion--surface {
+    & .accordion__trigger {
+        @media (hover: hover) {
+            &:hover:not([aria-expanded="true"]), &[data-hovered="true"]:not([aria-expanded="true"]) {
+                background-color: #656c7633;
+            }
+        }
+    }
+}
+
+.button--secondary{
+  background-color: #212830;
+  color: #ffffff;
 }

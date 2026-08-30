@@ -125,6 +125,7 @@ export class GitHubService {
           url: webhookUrl,
           content_type: 'json',
           insecure_ssl: '0',
+          secret: process.env.GITHUB_WEBHOOK_SECRET || undefined,
         },
         events: ['issues', 'issue_comment', 'pull_request', 'pull_request_review_comment'],
         active: true,
@@ -258,7 +259,7 @@ export class GitHubService {
   /**
    * Open a PR for an already-published head branch. The head branch (with its full git
    * history authored by the sandbox agent) must have been pushed beforehand via
-   * TrueForgeMaintainerService.publishSandboxBranch — this method only creates the PR.
+   * TrueForgeMaintainerService.publishSandboxBranch - this method only creates the PR.
    */
   async createPullRequestOnGitHub(
     owner: string,

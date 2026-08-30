@@ -5,7 +5,7 @@
  * pip install inside the sandbox clears all proxy env vars first.
  *
  * The sandbox-runtime sets HTTP_PROXY inside bwrap, but there is no
- * upstream proxy on this machine — pip always fails with ProxyError.
+ * upstream proxy on this machine - pip always fails with ProxyError.
  * Running `unset` before pip fixes it.
  */
 import { readFileSync, writeFileSync, existsSync } from 'fs';
@@ -38,14 +38,14 @@ for (const mainJsPath of entries) {
   const replacement = 'unset HTTP_PROXY https_proxy http_proxy https_proxy ALL_PROXY all_proxy; ${shellEscape(relPip)} install --trusted-host pypi.org --trusted-host files.pythonhosted.org ${shellEscape(VENV_PYDANTIC_PIN)}';
 
   if (!src.includes(target)) {
-    console.log(`  ⏭️  Target pattern not found — already patched or version mismatch.`);
+    console.log(`  ⏭️  Target pattern not found - already patched or version mismatch.`);
     continue;
   }
 
   const patched = src.replace(target, replacement);
 
   if (patched === src) {
-    console.log(`  ⏭️  No changes made — already patched.`);
+    console.log(`  ⏭️  No changes made - already patched.`);
     continue;
   }
 

@@ -1,7 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "#/db";
 import { trueforge } from "#/lib/trueforge";
 import { githubService } from "#/lib/github";
+
+async function verifyGitHubSignature(request: Request, rawBody: string): Promise<boolean> {
+  const secret = process.env.GITHUB_WEBHOOK_SECRET;
+  if (!secret) return true; // permissive in dev when secret not configured
+  const sig = request.headers.get("x-hub-signature-256");
+  if (!sig) return false;
+  const expected = "sha256=" + createHmac("sha256", secret).update(rawBody).digest("hex");
+  try {
+    return timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
 
 function isPRReadyComment(body: string): boolean {
   const lower = body.toLowerCase();
@@ -71,7 +85,16 @@ async function handleGet() {
 
 async function handlePost({ request }: { request: Request }) {
   try {
-    const payload = await request.json();
+    const rawBody = await request.text();
+
+    if (!await verifyGitHubSignature(request, rawBody)) {
+      return new Response(JSON.stringify({ error: "Invalid signature" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const payload = JSON.parse(rawBody);
     const event = request.headers.get("x-github-event");
 
     console.log("📩 GitHub Webhook Received:", {
@@ -106,8 +129,10 @@ async function handlePost({ request }: { request: Request }) {
         );
       }
 
-      // Fetch GitHub token
-      const userSettings = await prisma.maintainerSettings.findFirst();
+      // Fetch GitHub token - scoped to the repo owner (fixes cross-user credential leak)
+      const userSettings = await prisma.maintainerSettings.findUnique({
+        where: { userId: configuredRepo.userId },
+      });
       const githubToken = userSettings?.githubToken || process.env.GITHUB_PAT || process.env.GITHUB_TOKEN || undefined;
 
       // Check for spam
@@ -156,8 +181,10 @@ async function handlePost({ request }: { request: Request }) {
         );
       }
 
-      // 2. Fetch User Settings for GitHub PAT authentication & active model selection
-      const userSettings = await prisma.maintainerSettings.findFirst();
+      // 2. Fetch User Settings - scoped to the repo owner (fixes cross-user credential leak)
+      const userSettings = await prisma.maintainerSettings.findUnique({
+        where: { userId: configuredRepo.userId },
+      });
       const githubToken = userSettings?.githubToken || process.env.GITHUB_PAT || process.env.GITHUB_TOKEN || undefined;
 
       console.log(`🚀 Matched connected repo '${repoFullName}'! Initiating AI Orchestrator for Issue #${issue.number}...`);
@@ -214,10 +241,83 @@ async function handlePost({ request }: { request: Request }) {
 
       const isFromMaintainer = commentAuthor.toLowerCase() === payload.repository.owner.login.toLowerCase();
 
-      // If from maintainer, skip entirely — no store, no notify
+      // If from maintainer, skip entirely - no store, no notify
       if (isFromMaintainer) {
         return new Response(JSON.stringify({ status: "ignored", reason: "maintainer" }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
+
+      // ── @picto conversation trigger ──────────────────────────────────────
+      // If the comment starts with @picto (trimmed), resume the issue's agent session
+      const isPictoMention = commentBody.trim().toLowerCase().startsWith('@picto');
+      if (isPictoMention) {
+        const contextNumber = issueNumber ?? prNumber;
+        const workflow = contextNumber
+          ? await prisma.maintainerWorkflow.findFirst({
+              where: {
+                repoId: configuredRepo.id,
+                ...(issueNumber ? { issueNumber } : { prNumber: prNumber! }),
+              },
+              include: { repo: true },
+            })
+          : null;
+
+        if (workflow?.trueforgeSessionId) {
+          const userSettings = await prisma.maintainerSettings.findUnique({
+            where: { userId: configuredRepo.userId },
+          });
+          const githubToken = userSettings?.githubToken || process.env.GITHUB_PAT || process.env.GITHUB_TOKEN || undefined;
+          const [owner, repoName] = repoFullName.split('/');
+
+          // Post acknowledgement comment
+          await githubService.addIssueComment(
+            owner, repoName, contextNumber!,
+            `🤖 **@${commentAuthor}** - got it, I'm on it...`,
+            githubToken
+          );
+
+          // Strip the @picto prefix and send the rest as a turn
+          const userPrompt = commentBody.replace(/^@picto\s*/i, '').trim() ||
+            `The user @${commentAuthor} mentioned you. Please help with the issue.`;
+
+          const turnPrompt = `The user @${commentAuthor} is asking you via a GitHub comment:\n\n> ${userPrompt}\n\nRespond helpfully and concisely. If you need to make code changes, do so in the sandbox. Post your response as a GitHub comment on issue #${contextNumber}.`;
+
+          // Fire and forget - don't block the webhook response
+          trueforge.streamTurnWithAutoResume(workflow.trueforgeSessionId, turnPrompt)
+            .then(async ({ accumulatedText }) => {
+              if (accumulatedText) {
+                await githubService.addIssueComment(
+                  owner, repoName, contextNumber!,
+                  `🤖 **Picto:** ${accumulatedText}`,
+                  githubToken
+                );
+              }
+            })
+            .catch((err: any) => console.error('❌ @picto turn error:', err?.message));
+
+          return new Response(JSON.stringify({ success: true, action: 'picto_mention_triggered' }), {
+            status: 200, headers: { "Content-Type": "application/json" },
+          });
+        } else {
+          // No active session - notify user
+          const contextN = contextNumber;
+          if (contextN) {
+            const userSettings = await prisma.maintainerSettings.findUnique({
+              where: { userId: configuredRepo.userId },
+            });
+            const githubToken = userSettings?.githubToken || process.env.GITHUB_PAT || undefined;
+            const [owner, repoName] = repoFullName.split('/');
+            await githubService.addIssueComment(
+              owner, repoName, contextN,
+              `🤖 **@${commentAuthor}** - I don't have an active session for this issue yet. Open a new issue or reopen this one to start an investigation.`,
+              githubToken
+            );
+          }
+          return new Response(JSON.stringify({ status: "no_session", reason: "no active workflow session" }), {
+            status: 200, headers: { "Content-Type": "application/json" },
+          });
+        }
+      }
+      // ────────────────────────────────────────────────────────────────────
 
       // Classify comment via AI/heuristic
       const issue = payload.issue || payload.pull_request;

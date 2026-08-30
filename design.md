@@ -4,7 +4,7 @@
 
 ## 1. Visual Theme & Atmosphere
 
-High-contrast dark mode with vivid accents — feels modern, technical, and focused.
+High-contrast dark mode with vivid accents - feels modern, technical, and focused.
 
 The hero section leads with "Convert portfolio to premium light mode with unique elements and interactions".
 
@@ -14,7 +14,7 @@ The hero section leads with "Convert portfolio to premium light mode with unique
 - Heading weight 600, letter-spacing -0.1px
 - Dark background (#141414) as the primary canvas
 - Primary accent `#118af3` used for CTAs and brand highlights
-- 3 shadow level(s) detected — tinted shadows
+- 3 shadow level(s) detected - tinted shadows
 - Rounded corners (6px+) creating a friendly, approachable feel
 - Tags: dark, rounded, colorful, compact, monospace, sans-serif
 
@@ -179,7 +179,7 @@ The hero section leads with "Convert portfolio to premium light mode with unique
 
 ## 5. Layout Principles
 
-- **Base spacing unit:** `2px` — use multiples (4px, 6px, 8px, etc.)
+- **Base spacing unit:** `2px` - use multiples (4px, 6px, 8px, etc.)
 
 ### Spacing Scale (extracted from real elements)
 
@@ -219,23 +219,23 @@ The hero section leads with "Convert portfolio to premium light mode with unique
 - Use `#141414` as the primary background color
 - Use `Inter` for all headings and `Inter` for body text
 - Use `#118af3` as the single dominant accent/CTA color
-- Maintain `2px` as the base spacing unit — all gaps should be multiples
-- Keep the overall feel dark — use dark surfaces throughout
+- Maintain `2px` as the base spacing unit - all gaps should be multiples
+- Keep the overall feel dark - use dark surfaces throughout
 - Use rounded corners (`6px`+) consistently for all interactive elements
-- Embrace bold color combinations — playful energy is the point
-- Apply the shadow system for elevation — use the extracted shadow values
+- Embrace bold color combinations - playful energy is the point
+- Apply the shadow system for elevation - use the extracted shadow values
 - Use weight 600 for headings to match the brand's typographic voice
 
 ### Don't
 - Don't use colors outside the extracted palette without justification
 - Don't substitute Inter/Inter with generic alternatives
-- Don't use irregular spacing — stick to 2px grid
-- Don't introduce bright white surfaces — they break the dark palette
-- Don't use sharp corners — they feel hostile in this rounded design language
-- Don't use oversized hero text — this brand uses restrained type
-- Don't use pure black (#000000) for text — use `#ffffff` instead
-- Don't add decorative elements not present in the original design — no badges, ribbons, banners, or ornaments unless the source site uses them
-- Don't invent UI patterns the source site doesn't have — if the original has no NEW badge, don't add one just because a red is in the palette
+- Don't use irregular spacing - stick to 2px grid
+- Don't introduce bright white surfaces - they break the dark palette
+- Don't use sharp corners - they feel hostile in this rounded design language
+- Don't use oversized hero text - this brand uses restrained type
+- Don't use pure black (#000000) for text - use `#ffffff` instead
+- Don't add decorative elements not present in the original design - no badges, ribbons, banners, or ornaments unless the source site uses them
+- Don't invent UI patterns the source site doesn't have - if the original has no NEW badge, don't add one just because a red is in the palette
 
 ## 8. Responsive Behavior
 
@@ -247,7 +247,7 @@ The hero section leads with "Convert portfolio to premium light mode with unique
 | Wide | > 1440px | Max-width container, center content |
 
 - Touch targets: minimum 44×44px on mobile
-- Maintain 2px base unit across breakpoints — only scale multipliers
+- Maintain 2px base unit across breakpoints - only scale multipliers
 
 ## 9. Agent Prompt Guide
 
@@ -265,20 +265,20 @@ Border:      #212121
 
 1. "Build a hero section with a `#141414` background, `Inter` heading in `#ffffff`, and a `#118af3` CTA button with 8px radius."
 2. "Create a pricing card using background `#141414`, border `#212121`, `Inter` for text, and 6px padding."
-3. "Design a navigation bar — `#141414` background, `#ffffff` links, `#118af3` for active state."
+3. "Design a navigation bar - `#141414` background, `#ffffff` links, `#118af3` for active state."
 4. "Build a feature grid with 3 columns, 6px gap, each card using the card component style."
 5. "Create a footer with `#141414` background, `#ffffff` text, and 4px padding."
 
 ### Iteration Guide
 
 1. Start with layout structure (sections, grid, spacing)
-2. Apply colors from the palette — background first, then text, then accents
-3. Set typography — font families, sizes from the type scale, weights
-4. Add components — buttons, cards, inputs using the specs above
+2. Apply colors from the palette - background first, then text, then accents
+3. Set typography - font families, sizes from the type scale, weights
+4. Add components - buttons, cards, inputs using the specs above
 5. Apply border-radius consistently across all elements
-6. Add shadows for depth — use the extracted shadow values, not defaults
-7. Check responsive behavior — test mobile and tablet layouts
-8. Final pass — verify all colors match, spacing is consistent, fonts are correct
+6. Add shadows for depth - use the extracted shadow values, not defaults
+7. Check responsive behavior - test mobile and tablet layouts
+8. Final pass - verify all colors match, spacing is consistent, fonts are correct
 
 ## 10. CSS Custom Properties
 

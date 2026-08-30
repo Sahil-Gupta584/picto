@@ -9,7 +9,7 @@ import tailwindcss from '@tailwindcss/vite'
 const config = defineConfig({
   resolve: { tsconfigPaths: true },
   plugins: [devtools(), tailwindcss(), tanstackStart(), viteReact()],
-  server:{allowedHosts: true}
+  server:{ host: '0.0.0.0', allowedHosts: true }
 })
 
 export default config

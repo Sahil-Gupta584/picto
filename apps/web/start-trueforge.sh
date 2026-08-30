@@ -36,7 +36,7 @@ if [ -f "$CATALOG" ]; then
   export MODEL_CATALOG_PATH="$CATALOG"
   echo "📦 Using custom model catalog: $CATALOG"
 else
-  echo "⚠️  Custom model catalog not found at $CATALOG — using shipped catalog"
+  echo "⚠️  Custom model catalog not found at $CATALOG - using shipped catalog"
 fi
 
 # 5. Launch TrueForge with logging

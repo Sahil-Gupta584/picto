@@ -18,6 +18,8 @@ import { Route as ProtectedDashboardRouteImport } from './routes/_protected/dash
 import { Route as ApiSplatRouteImport } from './routes/api.$'
 import { Route as OffersFormIdRouteImport } from './routes/offers/$formId'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiDiscordMessageRouteImport } from './routes/api/discord/message'
+import { Route as ApiMcpDiscordRouteImport } from './routes/api/mcp/discord'
 import { Route as ApiRpcSplatRouteImport } from './routes/api.rpc.$'
 import { Route as ApiWebhookDodoRouteImport } from './routes/api/webhook/dodo'
 import { Route as ApiWebhooksGithubRouteImport } from './routes/api/webhooks/github'
@@ -68,6 +70,16 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiDiscordMessageRoute = ApiDiscordMessageRouteImport.update({
+  id: '/api/discord/message',
+  path: '/api/discord/message',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMcpDiscordRoute = ApiMcpDiscordRouteImport.update({
+  id: '/api/mcp/discord',
+  path: '/api/mcp/discord',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiRpcSplatRoute = ApiRpcSplatRouteImport.update({
   id: '/api/rpc/$',
   path: '/api/rpc/$',
@@ -105,6 +117,8 @@ export interface FileRoutesByFullPath {
   '/api/$': typeof ApiSplatRoute
   '/offers/$formId': typeof OffersFormIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/discord/message': typeof ApiDiscordMessageRoute
+  '/api/mcp/discord': typeof ApiMcpDiscordRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/api/webhook/dodo': typeof ApiWebhookDodoRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
@@ -120,6 +134,8 @@ export interface FileRoutesByTo {
   '/api/$': typeof ApiSplatRoute
   '/offers/$formId': typeof OffersFormIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/discord/message': typeof ApiDiscordMessageRoute
+  '/api/mcp/discord': typeof ApiMcpDiscordRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/api/webhook/dodo': typeof ApiWebhookDodoRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
@@ -137,6 +153,8 @@ export interface FileRoutesById {
   '/api/$': typeof ApiSplatRoute
   '/offers/$formId': typeof OffersFormIdRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/discord/message': typeof ApiDiscordMessageRoute
+  '/api/mcp/discord': typeof ApiMcpDiscordRoute
   '/api/rpc/$': typeof ApiRpcSplatRoute
   '/api/webhook/dodo': typeof ApiWebhookDodoRoute
   '/api/webhooks/github': typeof ApiWebhooksGithubRoute
@@ -154,6 +172,8 @@ export interface FileRouteTypes {
     | '/api/$'
     | '/offers/$formId'
     | '/api/auth/$'
+    | '/api/discord/message'
+    | '/api/mcp/discord'
     | '/api/rpc/$'
     | '/api/webhook/dodo'
     | '/api/webhooks/github'
@@ -169,6 +189,8 @@ export interface FileRouteTypes {
     | '/api/$'
     | '/offers/$formId'
     | '/api/auth/$'
+    | '/api/discord/message'
+    | '/api/mcp/discord'
     | '/api/rpc/$'
     | '/api/webhook/dodo'
     | '/api/webhooks/github'
@@ -185,6 +207,8 @@ export interface FileRouteTypes {
     | '/api/$'
     | '/offers/$formId'
     | '/api/auth/$'
+    | '/api/discord/message'
+    | '/api/mcp/discord'
     | '/api/rpc/$'
     | '/api/webhook/dodo'
     | '/api/webhooks/github'
@@ -200,6 +224,8 @@ export interface RootRouteChildren {
   ApiSplatRoute: typeof ApiSplatRoute
   OffersFormIdRoute: typeof OffersFormIdRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiDiscordMessageRoute: typeof ApiDiscordMessageRoute
+  ApiMcpDiscordRoute: typeof ApiMcpDiscordRoute
   ApiRpcSplatRoute: typeof ApiRpcSplatRoute
   ApiWebhookDodoRoute: typeof ApiWebhookDodoRoute
   ApiWebhooksGithubRoute: typeof ApiWebhooksGithubRoute
@@ -270,6 +296,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/discord/message': {
+      id: '/api/discord/message'
+      path: '/api/discord/message'
+      fullPath: '/api/discord/message'
+      preLoaderRoute: typeof ApiDiscordMessageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/mcp/discord': {
+      id: '/api/mcp/discord'
+      path: '/api/mcp/discord'
+      fullPath: '/api/mcp/discord'
+      preLoaderRoute: typeof ApiMcpDiscordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/rpc/$': {
       id: '/api/rpc/$'
       path: '/api/rpc/$'
@@ -334,6 +374,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSplatRoute: ApiSplatRoute,
   OffersFormIdRoute: OffersFormIdRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiDiscordMessageRoute: ApiDiscordMessageRoute,
+  ApiMcpDiscordRoute: ApiMcpDiscordRoute,
   ApiRpcSplatRoute: ApiRpcSplatRoute,
   ApiWebhookDodoRoute: ApiWebhookDodoRoute,
   ApiWebhooksGithubRoute: ApiWebhooksGithubRoute,

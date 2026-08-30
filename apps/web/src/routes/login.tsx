@@ -1,17 +1,23 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, redirect } from '@tanstack/react-router'
 import { Separator } from '@heroui/react'
 import { useState } from 'react'
 import { authClient } from '#/lib/auth-client'
+import { getSession } from '#/lib/session'
 import { Button } from '#/components/Button'
 import { Input } from '#/components/Input'
 import { RiGoogleFill, RiArrowLeftLine, RiMailSendLine } from 'react-icons/ri'
-import { SiDuckduckgo } from 'react-icons/si'
+import { LogoWithName } from '#/components/Logo'
 
 export const Route = createFileRoute('/login')({
+  beforeLoad: async () => {
+    const session = await getSession()
+    if (session?.user) throw redirect({ to: '/dashboard' })
+  },
   component: LoginPage,
 })
 
 function LoginPage() {
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [isMagicLoading, setIsMagicLoading] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
@@ -23,6 +29,7 @@ function LoginPage() {
     try {
       await authClient.signIn.magicLink({
         email,
+        name: name || undefined,
         callbackURL: '/dashboard',
       })
       setMagicSent(true)
@@ -57,17 +64,10 @@ function LoginPage() {
           </Link>
 
           <div className="flex items-center gap-2 mt-1">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#f59e0b] to-[#ea580c] text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]">
-              <SiDuckduckgo className="text-base" />
+            <LogoWithName size="lg" />
+            <span className="text-[10px] font-mono text-[var(--muted)] bg-[var(--surface-secondary)] border border-[var(--border)] px-1.5 py-0.5 rounded">
+              auth
             </span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-base font-bold tracking-tight text-[var(--foreground)]">
-                Picto
-              </span>
-              <span className="text-[10px] font-mono text-[var(--muted)] bg-[var(--surface-secondary)] border border-[var(--border)] px-1.5 py-0.5 rounded">
-                auth
-              </span>
-            </div>
           </div>
 
           <h2 className="mt-3 text-sm font-semibold tracking-tight text-[var(--foreground)]">
@@ -91,9 +91,7 @@ function LoginPage() {
               )
             }
           >
-            {isGoogleLoading
-              ? 'Connecting...'
-              : 'Continue with Google'}
+            {isGoogleLoading ? 'Connecting...' : 'Continue with Google'}
           </Button>
 
           <div className="flex items-center gap-3 my-1">
@@ -105,7 +103,7 @@ function LoginPage() {
           </div>
 
           {magicSent ? (
-            <div className="rounded-xl bg-[var(--surface-secondary)] p-4 text-center text-xs text-[var(--success)] border border-[var(--border)] space-y-1.5">
+            <div className="rounded-xl bg-[var(--surface-secondary)] p-4 text-center text-xs border border-[var(--border)] space-y-1.5">
               <div className="flex justify-center">
                 <span className="h-8 w-8 rounded-full bg-[var(--surface-tertiary)] flex items-center justify-center text-base">
                   <RiMailSendLine />
@@ -119,6 +117,13 @@ function LoginPage() {
           ) : (
             <form onSubmit={handleMagicLink} className="space-y-3.5">
               <Input
+                type="text"
+                label="Your Name"
+                placeholder="Sahil Gupta"
+                value={name}
+                onChange={(e: any) => setName(e.target.value)}
+              />
+              <Input
                 type="email"
                 label="Email Address"
                 placeholder="maintainer@example.com"
@@ -126,7 +131,6 @@ function LoginPage() {
                 onChange={(e: any) => setEmail(e.target.value)}
                 required
               />
-
               <Button
                 type="submit"
                 className="w-full justify-center h-9 text-xs shadow-md"

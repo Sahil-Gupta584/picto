@@ -13,7 +13,7 @@ export type ModelKey = typeof MODELS[number]['key'];
 
 export const DEFAULT_MODEL: ModelKey = 'google-gemini/gemini-3-5-flash-lite';
 
-/** Pass-through — keys are already in TrueForge format. */
+/** Pass-through - keys are already in TrueForge format. */
 export function resolveModelKey(raw?: string | null): ModelKey {
   if (!raw) return DEFAULT_MODEL;
   const found = MODELS.find((m) => m.key === raw);
