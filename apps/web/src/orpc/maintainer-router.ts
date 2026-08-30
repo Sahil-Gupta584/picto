@@ -3,6 +3,7 @@ import { prisma } from '#/db'
 import { githubService, buildConventionalTitle } from '#/lib/github'
 import { trueforge } from '#/lib/trueforge'
 import { authed, base } from '#/orpc/middleware'
+import { DEFAULT_MODEL, MODELS, resolveModelKey } from '#/lib/models'
 
 // Authenticated health check procedure
 export const healthCheck = authed.handler(async ({ context }) => {
@@ -23,7 +24,7 @@ async function getUserSettings(userId: string) {
     settings = await prisma.maintainerSettings.create({
       data: {
         userId,
-        selectedModel: 'google-gemini/gemini-3-1-pro-preview',
+        selectedModel: DEFAULT_MODEL,
         trueforgeBaseUrl: 'http://localhost:8790',
       },
     })
@@ -33,24 +34,25 @@ async function getUserSettings(userId: string) {
 }
 
 // Global stats RPC
-export const getStats = base.handler(async () => {
+export const getStats = authed.handler(async ({ context }) => {
   try {
     const totalRepos = await prisma.maintainerRepo.count({
-      where: { status: 'active' },
+      where: { status: 'active', userId: context.user.id },
     })
 
-    const needsAttentionCount = await prisma.maintainerWorkflow.count({
-      where: { status: 'awaiting_approval' },
+    const needsAttentionCount = await prisma.maintainerComment.count({
+      where: { shouldNotify: true, notified: false, repo: { userId: context.user.id } },
     })
 
     const trackedIssuesCount = await prisma.maintainerWorkflow.count({
-      where: { state: 'open' },
+      where: { state: 'open', repo: { userId: context.user.id } },
     })
 
     const prReviewsCount = await prisma.maintainerWorkflow.count({
       where: {
         status: { in: ['awaiting_approval', 'merged', 'investigating'] },
         prNumber: { not: null },
+        repo: { userId: context.user.id },
       },
     })
 
@@ -71,9 +73,10 @@ export const getStats = base.handler(async () => {
   }
 })
 
-export const getRepos = base.handler(async () => {
+export const getRepos = authed.handler(async ({ context }) => {
   try {
     const repos = await prisma.maintainerRepo.findMany({
+      where: { userId: context.user.id },
       orderBy: { updatedAt: 'desc' },
     })
 
@@ -96,17 +99,18 @@ export const getRepos = base.handler(async () => {
   }
 })
 
-export const getIssues = base.handler(async () => {
+export const getIssues = authed.handler(async ({ context }) => {
   try {
     const workflows = await prisma.maintainerWorkflow.findMany({
-      where: { state: 'open' },
+      where: { state: 'open', repo: { userId: context.user.id } },
       orderBy: { createdAt: 'desc' },
+      include: { repo: true },
     })
 
     return workflows.map((w) => ({
       id: w.id,
       number: w.issueNumber,
-      repoFullName: w.repoFullName,
+      repoFullName: w.repo.fullName,
       title: w.title,
       body: w.body,
       author: w.author,
@@ -127,13 +131,15 @@ export const getIssues = base.handler(async () => {
   }
 })
 
-export const getPRReviews = base.handler(async () => {
+export const getPRReviews = authed.handler(async ({ context }) => {
   try {
     const workflows = await prisma.maintainerWorkflow.findMany({
       where: {
         prNumber: { not: null },
+        repo: { userId: context.user.id },
       },
       orderBy: { createdAt: 'desc' },
+      include: { repo: true },
     })
 
     return workflows.map((w) => ({
@@ -141,7 +147,7 @@ export const getPRReviews = base.handler(async () => {
       number: w.prNumber!,
       prNumber: w.prNumber!,
       issueNumber: w.issueNumber,
-      repoFullName: w.repoFullName,
+      repoFullName: w.repo.fullName,
       title: w.title,
       branch: w.branch || 'main',
       status: (w.status === 'merged' ? 'merged' : w.status === 'rejected' ? 'rejected' : w.status === 'awaiting_approval' ? 'awaiting_approval' : 'open') as any,
@@ -169,49 +175,71 @@ export const getPRReviews = base.handler(async () => {
   }
 })
 
-export const getNeedsAttention = base.handler(async () => {
+export const getNeedsAttention = authed.handler(async ({ context }) => {
   try {
-    const pendingPRs = await prisma.maintainerWorkflow.findMany({
-      where: { status: 'awaiting_approval' },
+    const comments = await prisma.maintainerComment.findMany({
+      where: { shouldNotify: true, notified: false, repo: { userId: context.user.id } },
       orderBy: { createdAt: 'desc' },
     })
 
-    return pendingPRs.map((w) => ({
-      id: w.id,
-      number: w.prNumber || w.issueNumber,
-      repoFullName: w.repoFullName,
-      title: w.title,
-      issueNumber: w.issueNumber,
-      branch: w.branch || 'main',
-      diff: w.diff || '',
-      status: w.status as any,
-      summary: w.prSummary || '',
-      changes: [],
-      testResults: {
-        passed: w.testPassed ? 18 : 0,
-        total: 18,
-        failed: w.testPassed ? 0 : 18,
-        durationMs: 1420,
-        log: w.testLog || 'PASS test suite',
+    // Batch-fetch all relevant workflows to avoid N+1
+    const issueNumbers = comments.map((c) => c.issueNumber).filter((n): n is number => n !== null)
+    const prNumbers = comments.map((c) => c.prNumber).filter((n): n is number => n !== null)
+    const repoIds = [...new Set(comments.map((c) => c.repoId))]
+
+    const workflows = await prisma.maintainerWorkflow.findMany({
+      where: {
+        repoId: { in: repoIds },
+        OR: [
+          ...(issueNumbers.length > 0 ? [{ issueNumber: { in: issueNumbers } }] : []),
+          ...(prNumbers.length > 0 ? [{ prNumber: { in: prNumbers } }] : []),
+        ],
       },
-      agentReview: {
-        verdict: 'SAFE_TO_MERGE',
-        riskLevel: (w.riskLevel as 'low' | 'medium' | 'high') || 'low',
-        warnings: [],
-      },
-      prDecisionReasoning: w.prDecisionReasoning || '',
-      executionMode: w.executionMode || 'DIRECT',
-      prCreated: w.prCreated || false,
-      trueforgeSessionId: w.trueforgeSessionId || '',
-      toolCallId: w.toolCallId || undefined,
-      threadId: w.threadId || undefined,
-      createdAt: w.createdAt.toISOString(),
+      select: { repoId: true, issueNumber: true, prNumber: true },
+    })
+
+    // Build lookup maps keyed by repoId+number
+    const byIssue = new Map<string, number | null>()
+    const byPR = new Map<string, number | null>()
+    for (const w of workflows) {
+      if (w.issueNumber) byIssue.set(`${w.repoId}:${w.issueNumber}`, w.prNumber ?? null)
+      if (w.prNumber) byPR.set(`${w.repoId}:${w.prNumber}`, w.issueNumber)
+    }
+
+    return comments.map((c) => ({
+      ...c,
+      linkedPrNumber: c.issueNumber
+        ? (byIssue.get(`${c.repoId}:${c.issueNumber}`) ?? null)
+        : null,
+      linkedIssueNumber: c.prNumber
+        ? (byPR.get(`${c.repoId}:${c.prNumber}`) ?? null)
+        : null,
     }))
   } catch (err) {
     console.error('Database query error in getNeedsAttention:', err)
     return []
   }
 })
+
+export const markCommentNotified = authed
+  .input(z.object({ id: z.string() }))
+  .handler(async ({ input }) => {
+    const updated = await prisma.maintainerComment.update({
+      where: { id: input.id },
+      data: { notified: true },
+    })
+    return { success: true, comment: updated }
+  })
+
+export const dismissComment = authed
+  .input(z.object({ id: z.string() }))
+  .handler(async ({ input }) => {
+    const updated = await prisma.maintainerComment.update({
+      where: { id: input.id },
+      data: { shouldNotify: false, notified: true },
+    })
+    return { success: true, comment: updated }
+  })
 
 export const getSinceLastVisit = base.handler(async () => {
   try {
@@ -314,6 +342,7 @@ export const addRepo = authed
     } else {
       repoRecord = await prisma.maintainerRepo.create({
         data: {
+          userId: context.user.id,
           name,
           owner,
           fullName: input.repoFullName,
@@ -377,7 +406,7 @@ export const getSettings = authed.handler(async ({ context }) => {
     anthropicApiKey: settings.anthropicApiKey || '',
     openaiApiKey: settings.openaiApiKey || '',
     githubToken: settings.githubToken || '',
-    selectedModel: settings.selectedModel || 'google-gemini/gemini-3-1-pro-preview',
+      selectedModel: resolveModelKey(settings.selectedModel),
     trueforgeBaseUrl: settings.trueforgeBaseUrl || 'http://localhost:8790',
   }
 })
@@ -402,7 +431,7 @@ export const updateSettings = authed
         anthropicApiKey: input.anthropicApiKey,
         openaiApiKey: input.openaiApiKey,
         githubToken: input.githubToken,
-        selectedModel: input.selectedModel || 'google-gemini/gemini-3-1-pro-preview',
+        selectedModel: resolveModelKey(input.selectedModel),
         trueforgeBaseUrl: input.trueforgeBaseUrl || 'http://localhost:8790',
       },
       update: {
@@ -469,11 +498,16 @@ export const startWorkflow = authed
       console.warn('TrueForge session creation note:', e)
     }
 
+    const repoRecord = await prisma.maintainerRepo.findFirst({
+      where: { fullName: { equals: repoFullName, mode: 'insensitive' }, userId: context.user.id },
+    })
+    if (!repoRecord) throw new Error(`Repo ${repoFullName} not connected`)
+
     const workflow = await prisma.maintainerWorkflow.create({
       data: {
+        repoId: repoRecord.id,
         issueUrl: input.issueUrl,
         issueNumber,
-        repoFullName,
         title,
         body,
         status: 'investigating',
@@ -488,7 +522,7 @@ export const startWorkflow = authed
       issue: {
         id: workflow.id,
         number: workflow.issueNumber,
-        repoFullName: workflow.repoFullName,
+        repoFullName: repoRecord.fullName,
         title: workflow.title,
         status: workflow.status,
       },
@@ -500,6 +534,7 @@ export const approvePrCreation = authed
   .handler(async ({ input, context }) => {
     const workflow = await prisma.maintainerWorkflow.findUnique({
       where: { id: input.workflowId },
+      include: { repo: true },
     })
 
     if (!workflow) {
@@ -509,7 +544,7 @@ export const approvePrCreation = authed
       throw new Error('Workflow has no TrueForge session; nothing to publish.')
     }
 
-    const [owner, repoName] = workflow.repoFullName.split('/')
+    const [owner, repoName] = workflow.repo.fullName.split('/')
     const userSettings = await getUserSettings(context.user.id)
     const token = userSettings.githubToken || undefined
 
@@ -519,7 +554,7 @@ export const approvePrCreation = authed
     // Publish the agent's own git history from the sandbox (commits included) to GitHub.
     const published = await trueforge.publishSandboxBranch({
       sessionId: workflow.trueforgeSessionId,
-      repoFullName: workflow.repoFullName,
+      repoFullName: workflow.repo.fullName,
       desiredBranch,
       token,
       issueNumber: workflow.issueNumber,
@@ -562,6 +597,7 @@ export const approvePR = authed
   .handler(async ({ input, context }) => {
     const workflow = await prisma.maintainerWorkflow.findFirst({
       where: { OR: [{ prNumber: input.number }, { issueNumber: input.number }] },
+      include: { repo: true },
     })
 
     if (!workflow) {
@@ -579,7 +615,7 @@ export const approvePR = authed
 
     try {
       const userSettings = await getUserSettings(context.user.id)
-      const parts = workflow.repoFullName.split('/')
+      const parts = workflow.repo.fullName.split('/')
       if (parts.length === 2 && workflow.prNumber) {
         await githubService.mergePullRequest(parts[0], parts[1], workflow.prNumber, undefined, userSettings.githubToken || undefined)
       }
@@ -630,6 +666,18 @@ export const rejectPR = authed
     return { success: true, pr: updated }
   })
 
+export const getLivePrDiff = authed
+  .input(z.object({ repoFullName: z.string(), prNumber: z.number() }))
+  .handler(async ({ input, context }) => {
+    const userSettings = await prisma.maintainerSettings.findUnique({ where: { userId: context.user.id } })
+    const token = userSettings?.githubToken || undefined
+    const [owner, repo] = input.repoFullName.split('/')
+    if (!owner || !repo) throw new Error('Invalid repoFullName')
+    const diff = await githubService.getPullRequestDiff(owner, repo, input.prNumber, token)
+    const files = await githubService.getPullRequestFiles(owner, repo, input.prNumber)
+    return { diff, files }
+  })
+
 export const maintainerRouter = {
   healthCheck,
   getStats,
@@ -638,6 +686,9 @@ export const maintainerRouter = {
   getPRs: getPRReviews,
   getPRReviews,
   getNeedsAttention,
+  markCommentNotified,
+  dismissComment,
+  getLivePrDiff,
   getSinceLastVisit,
   getAvailableGitHubRepos,
   addRepo,
