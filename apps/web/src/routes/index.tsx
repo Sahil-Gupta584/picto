@@ -191,7 +191,7 @@ function LandingPage() {
       {/* CTA */}
       <section className="mx-auto max-w-3xl px-4 sm:px-6 py-20 border-t text-center" style={{ borderColor: 'rgba(61,68,77,0.3)' }}>
         <div className="rounded-2xl p-10" style={{ background: '#0d1117', border: '1px solid rgba(61,68,77,0.7)' }}>
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#f59e0b] to-[#ea580c] text-white mx-auto mb-5 shadow-[0_0_20px_rgba(245,158,11,0.3)]">
+          <div className="flex justify-center mb-5">
             <Logo size="lg" />
           </div>
           <h2 className="text-3xl font-bold text-white mb-3">Give your repo a maintainer</h2>
