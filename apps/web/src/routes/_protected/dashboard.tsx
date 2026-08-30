@@ -410,18 +410,18 @@ function DashboardComponent() {
                           };
                           const color = typeColor[evt.type] || 'var(--muted)';
                           return (
-                            <button
+                              <button
                               key={evt.id}
                               onClick={() => setDrawer({ kind: 'event', id: evt.id })}
-                              className="w-full text-left flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-[#151b23] transition-colors"
+                              className="w-full text-left flex items-start gap-3 px-3 py-3 rounded-lg hover:bg-[#151b23] transition-colors"
                             >
-                              <div className="mt-1 shrink-0 h-2 w-2 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+                              <div className="mt-1.5 shrink-0 h-2.5 w-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
                               <div className="min-w-0 flex-1">
                                 <div className="flex items-center gap-2">
-                                  <span className="text-xs font-semibold text-foreground">{evt.title}</span>
-                                  <span className="text-[10px] text-muted shrink-0">{new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                  <span className="text-sm font-semibold text-foreground">{evt.title}</span>
+                                  <span className="text-xs text-muted shrink-0">{new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                 </div>
-                                <p className="text-[11px] text-muted line-clamp-1 mt-0.5">{evt.detail}</p>
+                                <p className="text-xs text-muted line-clamp-2 mt-0.5 leading-relaxed">{evt.detail}</p>
                               </div>
                             </button>
                           );
