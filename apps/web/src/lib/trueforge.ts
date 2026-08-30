@@ -915,13 +915,20 @@ git diff "$UP..HEAD"`
           console.warn(`⚠️ [AI Orchestrator] ${publishNote}`);
         } else {
           try {
-            const [owner, repoName] = params.repoFullName.split('/');
-            const userSettings = await prisma.maintainerSettings.findFirst();
+            const workflowWithRepo = await prisma.maintainerWorkflow.findUnique({
+              where: { id: workflowId },
+              include: { repo: true },
+            });
+            const repoFullName = workflowWithRepo?.repo.fullName || '';
+            const [owner, repoName] = repoFullName.split('/');
+            const userSettings = workflowWithRepo?.repo.userId
+              ? await prisma.maintainerSettings.findUnique({ where: { userId: workflowWithRepo.repo.userId } })
+              : null;
             const token = userSettings?.githubToken || undefined;
 
             const published = await this.publishSandboxBranch({
               sessionId,
-              repoFullName: params.repoFullName,
+              repoFullName,
               token,
               issueNumber: workflow.issueNumber,
             });

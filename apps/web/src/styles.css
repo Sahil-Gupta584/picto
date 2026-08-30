@@ -17,13 +17,13 @@
   --accent: #8dd6ff;
   --accent-foreground: #111111;
   --background: #000000;
-  --border: #3d444d;
+  --border: rgba(61, 68, 77, 0.7);
   --danger: #f85149;
   --danger-foreground: #ffffff;
   --default: #0d1117;
   --default-foreground: #ffffff;
   --field-background: #0d1117;
-  --field-border: #30363d;
+  --field-border: rgba(61, 68, 77, 0.7);
   --field-foreground: #ffffff;
   --field-placeholder: #9198a1;
   --focus: #8dd6ff;
@@ -58,11 +58,10 @@ html, body {
   color: var(--foreground);
   font-family: var(--font-sans);
 }
-/* 
-/* default/ghost interactive elements: transparent bg, card bg on hover */
-[data-hover] { background-color: #010409 !important; }
-button:hover, [role="button"]:hover, [role="option"]:hover, [role="menuitem"]:hover {
-  background-color: #010409;
+
+/* list-box items hover */
+[data-slot="list-box-item"][data-hovered="true"] {
+  background-color: #2e323a !important;
 }
 
 /* Tabs: visible pill container + active state */
@@ -78,10 +77,10 @@ button:hover, [role="button"]:hover, [role="option"]:hover, [role="menuitem"]:ho
   color: var(--muted) !important;
 }
 [data-slot="tabs-tab"][data-selected="true"] {
-  background-color: #21262d !important;
+  background-color: #2e343d !important;
   color: var(--foreground) !important;
 }
 [data-slot="tabs-tab"][data-hovered="true"]:not([data-selected="true"]) {
   background-color: #161b22 !important;
   color: var(--foreground) !important;
-} */
+}
