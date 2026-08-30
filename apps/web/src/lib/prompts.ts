@@ -66,7 +66,25 @@ RULES:
 - Only return the JSON. Nothing else.`;
 }
 
-// ─── Developer Prompt (Implementation Only) ─────────────────────────────────
+// ─── Delegation Prompt (Turn 3 — supervisor delegates to subagent) ───────────
+
+export function buildDelegationPrompt(params: {
+  issueNumber: number;
+  title: string;
+  repoFullName: string;
+  plan: { context: string; findings: string; steps: string[] };
+}): string {
+  const developerInstructions = buildDeveloperPrompt(params);
+  return `Your triage decision was "fix". Now delegate the implementation to a subagent using the create_sub_agent tool.
+
+Call create_sub_agent with the following instructions for the subagent:
+
+---
+${developerInstructions}
+---
+
+IMPORTANT: Call create_sub_agent now. Do not implement anything yourself.`;
+}
 
 export function buildDeveloperPrompt(params: {
   issueNumber: number;

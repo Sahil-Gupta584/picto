@@ -1,7 +1,7 @@
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 import { prisma } from '#/db';
 import { githubService, buildConventionalTitle } from '#/lib/github';
-import { buildSupervisorPrompt, buildDeveloperPrompt, buildSetupPrompt } from '#/lib/prompts';
+import { buildSupervisorPrompt, buildDeveloperPrompt, buildSetupPrompt, buildDelegationPrompt } from '#/lib/prompts';
 import { resolveModelKey } from '#/lib/models';
 import { execSync } from 'child_process';
 import os from 'os';
@@ -588,19 +588,32 @@ ${triage.assignee ? `- **Assigned To**: @${triage.assignee}` : ''}
       return { workflow, triage, prNum: null, sessionId };
     }
 
-    // 7. FIX: Developer implementation (same session, no re-cloning)
-    console.log(`🤖 [AI Orchestrator] Supervisor decided FIX. Starting developer implementation...`);
-    const developerPrompt = buildDeveloperPrompt({
+    // 7. FIX: Delegate to subagent via harness create_sub_agent tool
+    console.log(`🤖 [AI Orchestrator] Supervisor decided FIX. Delegating to subagent via harness...`);
+    const delegationPrompt = buildDelegationPrompt({
       issueNumber: params.issueNumber,
       title: params.title,
       repoFullName: params.repoFullName,
       plan: decision.plan,
     });
 
-    console.log(`⏳ [AI Orchestrator] Developer implementation stream started...`);
-    this.consumeDeveloperAgentSession(sessionId, developerPrompt, workflow.id)
-      .then(() => console.log('✅ [AI Orchestrator] Developer implementation completed'))
-      .catch((err) => console.error('❌ [AI Orchestrator] Developer error:', err?.message || err));
+    console.log(`⏳ [AI Orchestrator] Sending delegation turn — harness will spawn subagent...`);
+    this.streamTurnWithAutoResume(sessionId, delegationPrompt, (event) => {
+      if (event.type === 'tool.call' && (event as any).name === 'create_sub_agent') {
+        console.log(`🤖 [AI Orchestrator] Subagent spawned for Issue #${params.issueNumber}`);
+        prisma.maintainerEvent.create({
+          data: {
+            workflowId: workflow.id,
+            type: 'sub_agent_spawned',
+            title: `Subagent spawned for Issue #${params.issueNumber}`,
+            detail: `Developer subagent delegated via TrueForge create_sub_agent`,
+          },
+        }).catch(() => {});
+      }
+    }).then(() => {
+      console.log('✅ [AI Orchestrator] Delegation turn completed — subagent finished');
+      this.consumeDeveloperAgentSession(sessionId, '', workflow.id);
+    }).catch((err) => console.error('❌ [AI Orchestrator] Delegation error:', err?.message || err));
 
     const updatedWorkflow = await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { status: 'investigating', prDecisionReasoning: `🤖 Triage: FIX (${decision.category}). ${decision.reasoning}`, directPr: decision.directPr, directPrReasoning: decision.directPrReasoning } });
     return { workflow: updatedWorkflow, triage, prNum: null, sessionId };

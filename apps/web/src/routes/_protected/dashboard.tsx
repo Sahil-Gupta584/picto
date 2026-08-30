@@ -144,9 +144,18 @@ function DashboardComponent() {
   const { data: issues = [] } = useQuery(orpc.maintainer.getIssues.queryOptions());
   const { data: prs = [] } = useQuery(orpc.maintainer.getPRReviews.queryOptions());
   const { data: repos = [] } = useQuery(orpc.maintainer.getRepos.queryOptions());
-  const { data: events = [] } = useQuery(orpc.maintainer.getSinceLastVisit.queryOptions());
+
+  const hasActiveWorkflow = (issues as any[]).some((i: any) => i.status === 'investigating');
+
+  const { data: events = [] } = useQuery({
+    ...orpc.maintainer.getSinceLastVisit.queryOptions(),
+    refetchInterval: hasActiveWorkflow ? 3000 : false,
+  } as any);
   const { data: settings = {} } = useQuery(orpc.maintainer.getSettings.queryOptions());
-  const { data: attentionItems = [] } = useQuery(orpc.maintainer.getNeedsAttention.queryOptions());
+  const { data: attentionItems = [] } = useQuery({
+    ...orpc.maintainer.getNeedsAttention.queryOptions(),
+    refetchInterval: hasActiveWorkflow ? 3000 : false,
+  } as any);
 
   // Mark visited only if last visit was more than 2 hours ago (or never)
   const markVisitedMutation = useMutation(orpc.maintainer.markVisited.mutationOptions({
