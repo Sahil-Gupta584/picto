@@ -125,6 +125,7 @@ export class GitHubService {
           url: webhookUrl,
           content_type: 'json',
           insecure_ssl: '0',
+          secret: process.env.GITHUB_WEBHOOK_SECRET || undefined,
         },
         events: ['issues', 'issue_comment', 'pull_request', 'pull_request_review_comment'],
         active: true,

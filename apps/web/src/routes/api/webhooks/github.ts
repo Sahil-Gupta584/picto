@@ -1,7 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "#/db";
 import { trueforge } from "#/lib/trueforge";
 import { githubService } from "#/lib/github";
+
+async function verifyGitHubSignature(request: Request, rawBody: string): Promise<boolean> {
+  const secret = process.env.GITHUB_WEBHOOK_SECRET;
+  if (!secret) return true; // permissive in dev when secret not configured
+  const sig = request.headers.get("x-hub-signature-256");
+  if (!sig) return false;
+  const expected = "sha256=" + createHmac("sha256", secret).update(rawBody).digest("hex");
+  try {
+    return timingSafeEqual(Buffer.from(sig), Buffer.from(expected));
+  } catch {
+    return false;
+  }
+}
 
 function isPRReadyComment(body: string): boolean {
   const lower = body.toLowerCase();
@@ -71,7 +85,16 @@ async function handleGet() {
 
 async function handlePost({ request }: { request: Request }) {
   try {
-    const payload = await request.json();
+    const rawBody = await request.text();
+
+    if (!await verifyGitHubSignature(request, rawBody)) {
+      return new Response(JSON.stringify({ error: "Invalid signature" }), {
+        status: 401,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
+
+    const payload = JSON.parse(rawBody);
     const event = request.headers.get("x-github-event");
 
     console.log("📩 GitHub Webhook Received:", {
@@ -106,8 +129,10 @@ async function handlePost({ request }: { request: Request }) {
         );
       }
 
-      // Fetch GitHub token
-      const userSettings = await prisma.maintainerSettings.findFirst();
+      // Fetch GitHub token — scoped to the repo owner (fixes cross-user credential leak)
+      const userSettings = await prisma.maintainerSettings.findUnique({
+        where: { userId: configuredRepo.userId },
+      });
       const githubToken = userSettings?.githubToken || process.env.GITHUB_PAT || process.env.GITHUB_TOKEN || undefined;
 
       // Check for spam
@@ -156,8 +181,10 @@ async function handlePost({ request }: { request: Request }) {
         );
       }
 
-      // 2. Fetch User Settings for GitHub PAT authentication & active model selection
-      const userSettings = await prisma.maintainerSettings.findFirst();
+      // 2. Fetch User Settings — scoped to the repo owner (fixes cross-user credential leak)
+      const userSettings = await prisma.maintainerSettings.findUnique({
+        where: { userId: configuredRepo.userId },
+      });
       const githubToken = userSettings?.githubToken || process.env.GITHUB_PAT || process.env.GITHUB_TOKEN || undefined;
 
       console.log(`🚀 Matched connected repo '${repoFullName}'! Initiating AI Orchestrator for Issue #${issue.number}...`);
