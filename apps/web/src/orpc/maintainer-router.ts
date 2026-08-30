@@ -285,6 +285,7 @@ export const getSinceLastVisit = base.handler(async () => {
     const events = await prisma.maintainerEvent.findMany({
       orderBy: { timestamp: 'desc' },
       take: 20,
+      include: { workflow: { include: { repo: true } } },
     })
 
     return events.map((e) => ({
@@ -294,6 +295,10 @@ export const getSinceLastVisit = base.handler(async () => {
       detail: e.detail,
       description: e.detail,
       timestamp: e.timestamp.toISOString(),
+      workflowId: e.workflowId,
+      issueNumber: e.workflow?.issueNumber ?? null,
+      prNumber: e.workflow?.prNumber ?? null,
+      repoFullName: e.workflow?.repo?.fullName ?? null,
     }))
   } catch (err) {
     console.error('Database query error in getSinceLastVisit:', err)

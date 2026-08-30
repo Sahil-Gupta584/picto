@@ -413,7 +413,7 @@ function DashboardComponent() {
                             <button
                               key={evt.id}
                               onClick={() => setDrawer({ kind: 'event', id: evt.id })}
-                              className="w-full text-left flex items-start gap-3 px-3 py-3 rounded-lg hover:bg-[#151b23] transition-colors"
+                              className="w-full text-left flex items-start gap-3 px-3 py-3 rounded-none hover:bg-[#151b23] transition-colors cursor-pointer border-b border-[var(--border)]"
                             >
                               <div className="mt-1.5 shrink-0 h-2.5 w-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
                               <div className="min-w-0 flex-1">
@@ -597,14 +597,67 @@ function DashboardComponent() {
                     </div>
                   </>
                 )}
-                {drawer?.kind === 'event' && selectedEvent && (
-                  <>
-                    <div className="text-xs text-muted">{new Date(selectedEvent.timestamp).toLocaleString()}</div>
-                    <h2 className="text-sm font-semibold text-foreground">{selectedEvent.title}</h2>
-                    <p className="text-xs leading-relaxed text-foreground">{selectedEvent.detail}</p>
-                    <div className="text-xs text-muted">Type: {selectedEvent.type}</div>
-                  </>
-                )}
+                {drawer?.kind === 'event' && selectedEvent && (() => {
+                  // If event links to an issue, reuse the issue detail view
+                  const linkedIssue = (selectedEvent as any).issueNumber
+                    ? (issues as any[]).find((i: any) => i.number === (selectedEvent as any).issueNumber)
+                    : null;
+
+                  if (linkedIssue) {
+                    return (
+                      <>
+                        <h2 className="text-xl font-semibold text-foreground leading-snug">
+                          {linkedIssue.title}
+                          <span className="ml-2 text-xl font-light text-muted">#{linkedIssue.number}</span>
+                        </h2>
+                        <div>
+                          {(() => {
+                            const s = linkedIssue.status?.toLowerCase() ?? '';
+                            const isClosed = s === 'closed' || s === 'rejected' || s === 'merged';
+                            return (
+                              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${isClosed ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success'}`}>
+                                <IssueIcon status={linkedIssue.status} size={14} />
+                                {isClosed ? 'Closed' : 'Open'}
+                              </span>
+                            );
+                          })()}
+                        </div>
+                        {linkedIssue.author && (
+                          <div className="flex items-center justify-between px-3 py-2 -mb-px rounded-t-lg bg-accent/5 border border-accent/15">
+                            <GitHubUser login={linkedIssue.author} />
+                            <span className="text-[10px] border border-accent/15 rounded-full px-2 py-0.5 text-muted">Owner</span>
+                          </div>
+                        )}
+                        <div className="rounded-b-lg rounded-tr-lg p-4 border border-accent/15" style={{ borderTop: linkedIssue.author ? 'none' : undefined }}>
+                          <MarkdownBody>{linkedIssue.body}</MarkdownBody>
+                        </div>
+                        {linkedIssue.analysis?.rootCause && (
+                          <Card>
+                            <Card.Content>
+                              <div className="font-semibold flex items-center gap-1.5 mb-1 text-foreground"><RiBrainLine /> Root Cause</div>
+                              <div className="text-xs text-foreground">{linkedIssue.analysis.rootCause}</div>
+                              {linkedIssue.analysis.affectedFiles?.length > 0 && (
+                                <div className="text-[11px] text-muted mt-1">Affected: {linkedIssue.analysis.affectedFiles.join(', ')}</div>
+                              )}
+                            </Card.Content>
+                          </Card>
+                        )}
+                        <div className="pt-2 border-t border-border">
+                          <p className="text-xs text-muted">{selectedEvent.detail}</p>
+                        </div>
+                      </>
+                    );
+                  }
+
+                  // fallback: generic event view
+                  return (
+                    <>
+                      <h2 className="text-base font-semibold text-foreground">{selectedEvent.title}</h2>
+                      <div className="text-xs text-muted">{new Date(selectedEvent.timestamp).toLocaleString()}</div>
+                      <p className="text-sm leading-relaxed text-foreground">{selectedEvent.detail}</p>
+                    </>
+                  );
+                })()}
               </Drawer.Body>
             </Drawer.Dialog>
           </Drawer.Content>
