@@ -48,11 +48,11 @@ function LandingPage() {
         </div>
 
         <h1 className="text-5xl sm:text-6xl font-bold tracking-tight text-white leading-[1.1] mb-6 max-w-3xl mx-auto">
-          Your repo gets a maintainer that never sleeps
+          Your entire repo. One screen.
         </h1>
 
         <p className="text-lg text-[#9198a1] max-w-xl mx-auto mb-10 leading-relaxed">
-          Picto triages every GitHub issue, fixes bugs in a sandboxed environment, opens a PR — and pauses for your approval before anything merges.
+          Picto runs your maintenance so you don't have to. Watch everything, approve what matters.
         </p>
 
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
