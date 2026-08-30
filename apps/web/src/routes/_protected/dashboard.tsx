@@ -7,7 +7,7 @@ import { RunWorkflowModal } from '#/components/maintainer/RunWorkflowModal';
 import { AddRepoModal } from '#/components/maintainer/AddRepoModal';
 import { Drawer, Tabs, Card, Chip, Badge, DisclosureGroup, Disclosure } from '@heroui/react';
 import { Button } from '#/components/Button';
-import { Select, SelectItem } from '#/components/Select';
+import { Select, SelectItem, Separator } from '#/components/Select';
 import {
   RiAlertLine,
   RiCheckDoubleLine,
@@ -133,13 +133,15 @@ function DashboardComponent() {
             {(repos as any[]).map((r: any) => (
               <SelectItem key={r.id} value={r.id}>{r.fullName}</SelectItem>
             ))}
+            <Separator />
             <SelectItem value="__add__">+ Add new repo</SelectItem>
           </Select>
         </div>
 
+
         {/* Tab list is fit-width; panels stretch to full width via w-full on Tabs */}
         <Tabs selectedKey={activeTab} onSelectionChange={(k: any) => setActiveTab(k as any)} className="w-full">
-          <Tabs.ListContainer className="w-fit">
+          <Tabs.ListContainer className="w-fit bg-[#0D1117]" >
             <Tabs.List aria-label="Dashboard tabs">
               <Tabs.Tab id="attention" className="whitespace-nowrap">
                 <span className="flex items-center gap-2">
@@ -149,7 +151,6 @@ function DashboardComponent() {
                     <Chip size="sm" className="shrink-0">{(filteredAttention as any[]).length}</Chip>
                   )}
                 </span>
-                <Tabs.Indicator />
               </Tabs.Tab>
               <Tabs.Tab id="logs" className="whitespace-nowrap">
                 <span className="flex items-center gap-2">
@@ -157,7 +158,6 @@ function DashboardComponent() {
                   <span>Logs</span>
                   <Chip size="sm" variant="secondary" className="shrink-0">{(events as any[]).length}</Chip>
                 </span>
-                <Tabs.Indicator />
               </Tabs.Tab>
             </Tabs.List>
           </Tabs.ListContainer>

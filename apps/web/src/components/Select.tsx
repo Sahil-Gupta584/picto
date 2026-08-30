@@ -1,4 +1,6 @@
-import { Select as HeroSelect, Label, ListBox } from '@heroui/react'
+import { Select as HeroSelect, Label, ListBox, Separator } from '@heroui/react'
+
+export { ListBox, Separator }
 
 export interface CustomSelectProps {
   label?: string
@@ -9,6 +11,7 @@ export interface CustomSelectProps {
   children?: React.ReactNode
   required?: boolean
   isRequired?: boolean
+  trigger?: React.ReactNode
   [key: string]: any
 }
 
@@ -22,6 +25,7 @@ export function Select({
   children,
   required,
   isRequired,
+  trigger,
   ...props
 }: CustomSelectProps & { selectedKey?: any }) {
   const actualSelectedKey = value !== undefined ? value : selectedKey !== undefined ? selectedKey : selectedKeys ? Array.from(selectedKeys as Set<string>)[0] : undefined
@@ -39,23 +43,22 @@ export function Select({
       {...props}
     >
       {label && <Label>{label}</Label>}
-      <HeroSelect.Trigger>
-        <HeroSelect.Value />
+      <HeroSelect.Trigger className={'border'}>
+        {trigger ?? <HeroSelect.Value />}
         <HeroSelect.Indicator />
       </HeroSelect.Trigger>
-      <HeroSelect.Popover>
+      <HeroSelect.Popover className="bg-default border ">
         <ListBox>{children}</ListBox>
       </HeroSelect.Popover>
     </HeroSelect>
   )
 }
 
-export function SelectItem({ children, value, key, ...props }: any) {
-  const itemId = value || key
+export function SelectItem({ children, value, ...props }: any) {
   return (
     <ListBox.Item
-      id={itemId}
-      textValue={typeof children === 'string' ? children : String(itemId)}
+      id={value}
+      textValue={typeof children === 'string' ? children : String(value)}
       {...props}
     >
       {children}
