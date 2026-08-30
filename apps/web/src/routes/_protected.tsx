@@ -4,6 +4,7 @@ import {
   redirect,
   useRouter,
 } from '@tanstack/react-router'
+import { Select, Label, ListBox, Separator, Avatar } from '@heroui/react'
 import {
   RiLogoutBoxLine,
   RiMoneyDollarCircleLine,
@@ -12,7 +13,6 @@ import {
 } from 'react-icons/ri'
 import { authClient } from '#/lib/auth-client'
 import { getSession } from '#/lib/session'
-import { Select, SelectItem, Separator } from '#/components/Select'
 import { LogoWithName } from '#/components/Logo'
 
 export const Route = createFileRoute('/_protected')({
@@ -36,6 +36,8 @@ function ProtectedLayout() {
   }
 
   const displayName = user?.name ?? user?.email ?? 'Maintainer'
+  const displayEmail = user?.email ?? ''
+  const initials = displayName.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase()
 
   return (
     <div className="flex min-h-screen flex-col bg-[var(--background)] text-[var(--foreground)] font-sans antialiased">
@@ -53,29 +55,68 @@ function ProtectedLayout() {
 
           <div className="flex items-center gap-2">
             <Select
+              aria-label="User menu"
               value="profile"
-              onChange={(v: string) => {
+              onChange={(v: any) => {
                 if (v === 'dashboard') router.navigate({ to: '/dashboard' })
                 else if (v === 'billing') router.navigate({ to: '/billing' })
                 else if (v === 'byok') window.dispatchEvent(new CustomEvent('open-byok-settings'))
                 else if (v === 'signout') handleSignOut()
               }}
-              aria-label="User menu"
             >
-              <SelectItem value="profile">{displayName}</SelectItem>
-              <SelectItem value="dashboard">
-                <span className="flex items-center gap-2"><RiDashboardLine className="text-[var(--accent)]" /> Workspace Dashboard</span>
-              </SelectItem>
-              <SelectItem value="billing">
-                <span className="flex items-center gap-2"><RiMoneyDollarCircleLine className="text-[var(--success)]" /> Billing & Quota</span>
-              </SelectItem>
-              <SelectItem value="byok">
-                <span className="flex items-center gap-2"><RiSettings4Line className="text-[var(--accent)]" /> BYOK & Config</span>
-              </SelectItem>
-              <Separator />
-              <SelectItem value="signout">
-                <span className="flex items-center gap-2 text-[var(--danger)]"><RiLogoutBoxLine /> Sign out</span>
-              </SelectItem>
+              <Select.Trigger>
+                <Select.Value>
+                  {() => (
+                    <div className="flex items-center gap-2">
+                      <Avatar size="sm" className="h-6 w-6 text-xs bg-[var(--surface-tertiary)] border border-[var(--border)]">
+                        {user?.image && <Avatar.Image src={user.image} alt={displayName} />}
+                        <Avatar.Fallback>{initials}</Avatar.Fallback>
+                      </Avatar>
+                      <span className="hidden sm:block text-xs font-medium">{displayName}</span>
+                    </div>
+                  )}
+                </Select.Value>
+                <Select.Indicator />
+              </Select.Trigger>
+              <Select.Popover>
+                <ListBox>
+                  {/* Identity section */}
+                  <ListBox.Item id="profile" textValue={displayName} isDisabled>
+                    <div className="flex items-center gap-2.5 py-1">
+                      <Avatar size="md" className="h-8 w-8 bg-[var(--surface-tertiary)] border border-[var(--border)]">
+                        {user?.image && <Avatar.Image src={user.image} alt={displayName} />}
+                        <Avatar.Fallback>{initials}</Avatar.Fallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <p className="text-xs font-semibold text-[var(--foreground)] truncate">{displayName}</p>
+                        <p className="text-[11px] text-[var(--muted)] truncate">{displayEmail}</p>
+                      </div>
+                    </div>
+                  </ListBox.Item>
+                  <Separator />
+                  <ListBox.Item id="dashboard" textValue="Workspace Dashboard">
+                    <span className="flex items-center gap-2 text-xs py-0.5">
+                      <RiDashboardLine className="text-[var(--accent)]" /> Workspace Dashboard
+                    </span>
+                  </ListBox.Item>
+                  <ListBox.Item id="billing" textValue="Billing & Quota">
+                    <span className="flex items-center gap-2 text-xs py-0.5">
+                      <RiMoneyDollarCircleLine className="text-[var(--success)]" /> Billing & Quota
+                    </span>
+                  </ListBox.Item>
+                  <ListBox.Item id="byok" textValue="BYOK & Config">
+                    <span className="flex items-center gap-2 text-xs py-0.5">
+                      <RiSettings4Line className="text-[var(--accent)]" /> BYOK & Config
+                    </span>
+                  </ListBox.Item>
+                  <Separator />
+                  <ListBox.Item id="signout" textValue="Sign out">
+                    <span className="flex items-center gap-2 text-xs py-0.5 text-[var(--danger)]">
+                      <RiLogoutBoxLine /> Sign out
+                    </span>
+                  </ListBox.Item>
+                </ListBox>
+              </Select.Popover>
             </Select>
           </div>
         </div>

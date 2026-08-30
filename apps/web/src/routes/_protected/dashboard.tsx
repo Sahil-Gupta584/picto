@@ -1,11 +1,13 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { orpc } from '#/orpc/client';
 import { BYOKSettingsModal } from '#/components/maintainer/BYOKSettingsModal';
 import { RunWorkflowModal } from '#/components/maintainer/RunWorkflowModal';
 import { AddRepoModal } from '#/components/maintainer/AddRepoModal';
-import { Drawer, Tabs, Card, Chip, Badge, DisclosureGroup, Disclosure } from '@heroui/react';
+import { Drawer, Tabs, Card, Chip, Badge, Accordion } from '@heroui/react';
 import { Button } from '#/components/Button';
 import { Select, SelectItem, Separator } from '#/components/Select';
 import {
@@ -20,42 +22,82 @@ import {
   RiShieldCheckLine,
   RiCodeSSlashLine,
 } from 'react-icons/ri';
+import { GoIssueOpened, GoIssueClosed, GoGitPullRequest, GoGitPullRequestClosed, GoGitMerge } from 'react-icons/go';
 
 export const Route = createFileRoute('/_protected/dashboard')({
   component: DashboardComponent,
 });
 
-function FormattedSummaryContent({ text }: { text: string }) {
-  if (!text) return null;
-  const hasNumberedList = /(?:\d+\.\s+\*\*)/.test(text);
-  if (hasNumberedList) {
-    const parts = text.split(/(?=\d+\.\s+\*\*)/);
-    const intro = parts[0]?.trim();
-    const items = parts.slice(1);
-    return (
-      <div className="space-y-3">
-        {intro && <p className="text-sm font-medium leading-relaxed opacity-90">{intro.replace(/\*\*/g, '').replace(/`/g, '')}</p>}
-        <div className="grid gap-2.5">
-          {items.map((item, idx) => {
-            const clean = item.replace(/^\d+\.\s+/, '');
-            const match = clean.match(/^\*\*([^*]+)\*\*:\s*(.*)/s);
-            if (match) {
-              return (
-                <Card key={idx} variant="secondary">
-                  <Card.Content className="flex gap-3 p-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground text-xs font-bold mt-0.5">{idx + 1}</span>
-                    <div className="leading-relaxed text-sm"><span className="font-semibold">{match[1]}: </span><span className="text-muted">{match[2].replace(/`([^`]+)`/g, '$1').replace(/\*\*/g, '')}</span></div>
-                  </Card.Content>
-                </Card>
-              );
-            }
-            return <Card key={idx} variant="secondary"><Card.Content className="text-sm p-3">{clean.replace(/\*\*/g, '').replace(/`/g, '')}</Card.Content></Card>;
-          })}
-        </div>
-      </div>
-    );
-  }
-  return <p className="text-sm leading-relaxed">{text.replace(/\*\*/g, '').replace(/`([^`]+)`/g, '$1')}</p>;
+function MarkdownBody({ children }: { children: string }) {
+  if (!children) return null;
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        h1: ({ children }) => <h1 className="text-lg font-bold mt-4 mb-2 text-foreground border-b border-border pb-1">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-base font-semibold mt-4 mb-2 text-foreground border-b border-border pb-1">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-sm font-semibold mt-3 mb-1 text-foreground">{children}</h3>,
+        h4: ({ children }) => <h4 className="text-sm font-medium mt-2 mb-1 text-foreground">{children}</h4>,
+        p: ({ children }) => <p className="text-sm leading-relaxed mb-3 text-foreground">{children}</p>,
+        ul: ({ children }) => <ul className="list-disc pl-6 text-sm space-y-1 mb-3 text-foreground">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal pl-6 text-sm space-y-1 mb-3 text-foreground">{children}</ol>,
+        li: ({ children }) => <li className="text-sm leading-relaxed text-foreground">{children}</li>,
+        code: ({ children, className }) => {
+          const isBlock = className?.includes('language-');
+          return isBlock
+            ? <code className="block bg-[#161b22] border border-[#30363d] rounded-md p-4 text-[13px] font-mono whitespace-pre-wrap overflow-auto mb-3 text-foreground">{children}</code>
+            : <code className="bg-[#161b22] border border-[#30363d] rounded px-1.5 py-0.5 text-[12px] font-mono text-foreground">{children}</code>;
+        },
+        pre: ({ children }) => <pre className="mb-3">{children}</pre>,
+        blockquote: ({ children }) => <blockquote className="border-l-4 border-[#30363d] pl-4 text-sm text-muted italic mb-3">{children}</blockquote>,
+        a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-[#58a6ff] underline underline-offset-2 text-sm hover:text-[#79c0ff]">{children}</a>,
+        strong: ({ children }) => <strong className="font-semibold text-foreground">{children}</strong>,
+        em: ({ children }) => <em className="italic text-foreground">{children}</em>,
+        hr: () => <hr className="border-[#30363d] my-4" />,
+        table: ({ children }) => <table className="w-full text-sm border-collapse mb-3">{children}</table>,
+        th: ({ children }) => <th className="border border-[#30363d] px-3 py-1.5 text-left font-semibold bg-[#161b22] text-foreground">{children}</th>,
+        td: ({ children }) => <td className="border border-[#30363d] px-3 py-1.5 text-foreground">{children}</td>,
+      }}
+    >
+      {children}
+    </ReactMarkdown>
+  );
+}
+
+function GitHubUser({ login, size = 20 }: { login: string; size?: number }) {
+  if (!login) return null;
+  return (
+    <a
+      href={`https://github.com/${login}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-1.5 hover:opacity-80 transition-opacity"
+    >
+      <img
+        src={`https://github.com/${login}.png?size=${size * 2}`}
+        alt={login}
+        width={size}
+        height={size}
+        className="rounded-full"
+        style={{ width: size, height: size }}
+      />
+      <span className="text-xs text-muted font-mono">{login}</span>
+    </a>
+  );
+}
+
+function IssueIcon({ status, size = 16 }: { status?: string; size?: number }) {
+  const s = status?.toLowerCase() ?? '';
+  if (s === 'closed' || s === 'rejected' || s === 'merged')
+    return <GoIssueClosed size={size} className="text-[#8957e5] shrink-0" />;
+  return <GoIssueOpened size={size} className="text-[#3fb950] shrink-0" />;
+}
+
+function PRIcon({ status, size = 16 }: { status?: string; size?: number }) {
+  const s = status?.toLowerCase() ?? '';
+  if (s === 'merged') return <GoGitMerge size={size} className="text-[#8957e5] shrink-0" />;
+  if (s === 'closed' || s === 'rejected') return <GoGitPullRequestClosed size={size} className="text-[#f85149] shrink-0" />;
+  return <GoGitPullRequest size={size} className="text-[#3fb950] shrink-0" />;
 }
 
 type DrawerData = { kind: 'issue' | 'pr' | 'comment' | 'event'; id: string | number; prNumber?: number } | null;
@@ -138,10 +180,8 @@ function DashboardComponent() {
           </Select>
         </div>
 
-
-        {/* Tab list is fit-width; panels stretch to full width via w-full on Tabs */}
         <Tabs selectedKey={activeTab} onSelectionChange={(k: any) => setActiveTab(k as any)} className="w-full">
-          <Tabs.ListContainer className="w-fit bg-[#0D1117]" >
+          <Tabs.ListContainer className="w-fit">
             <Tabs.List aria-label="Dashboard tabs">
               <Tabs.Tab id="attention" className="whitespace-nowrap">
                 <span className="flex items-center gap-2">
@@ -163,7 +203,7 @@ function DashboardComponent() {
           </Tabs.ListContainer>
 
           <Tabs.Panel id="attention" className="w-full">
-            <Card className="w-full">
+            <Card className="w-full border border-border">
               <Card.Header>
                 <div className="flex items-center gap-2 text-sm font-semibold">Review & Human Sign-off Queue</div>
               </Card.Header>
@@ -188,8 +228,8 @@ function DashboardComponent() {
                           <div className="flex flex-wrap items-center gap-2 text-xs">
                             {c.issueNumber && <Badge size="sm" variant="soft">Issue #{c.issueNumber}</Badge>}
                             {c.prNumber && <Badge size="sm" color="accent" variant="soft">PR #{c.prNumber}</Badge>}
-                            <span className="text-muted">by @{c.author}</span>
                             {c.isPRReady && <Badge size="sm" color="success" variant="soft">PR ready for review</Badge>}
+                            <GitHubUser login={c.author} size={16} />
                           </div>
                           <p className="text-[13px] leading-relaxed line-clamp-3">{c.body}</p>
                           {c.aiReasoning && <p className="text-xs text-muted">AI: {c.aiReasoning}</p>}
@@ -215,225 +255,298 @@ function DashboardComponent() {
           </Tabs.Panel>
 
           <Tabs.Panel id="logs" className="w-full">
-            <Card className="w-full">
-              <DisclosureGroup defaultExpandedKeys={['issues']} allowsMultipleExpanded>
-                <Disclosure id="issues">
-                  <Disclosure.Heading>
-                    <Button slot="trigger" variant="ghost" className="w-full justify-between">
+            <Card className="w-full border border-border">
+              <Accordion allowsMultipleExpanded defaultExpandedKeys={['events']} className="w-full">
+                <Accordion.Item id="issues">
+                  <Accordion.Heading>
+                    <Accordion.Trigger>
                       <span className="flex items-center gap-2 text-sm font-semibold">
                         <RiBugLine /> {(filteredIssues as any[]).length} new issues
                       </span>
-                      <Disclosure.Indicator />
-                    </Button>
-                  </Disclosure.Heading>
-                  <Disclosure.Content>
-                    <div className="space-y-1 px-2 pb-2">
-                      {(filteredIssues as any[]).length === 0 ? (
-                        <div className="text-xs text-center py-6 text-muted">No issues</div>
-                      ) : (filteredIssues as any[]).slice(0, 10).map((iss: any) => (
-                        <Card key={iss.id} variant="secondary" onClick={() => setDrawer({ kind: 'issue', id: iss.id })}>
-                          <Card.Content>
-                            <div className="flex items-center justify-between">
-                              <div className="min-w-0">
-                                <div className="text-xs font-medium truncate">{iss.title}</div>
-                                <div className="text-[11px] text-muted">#{iss.number} · {iss.status}</div>
+                      <Accordion.Indicator />
+                    </Accordion.Trigger>
+                  </Accordion.Heading>
+                  <Accordion.Panel>
+                    <Accordion.Body>
+                      <div className="space-y-1">
+                        {(filteredIssues as any[]).length === 0 ? (
+                          <div className="text-xs text-center py-6 text-muted">No issues</div>
+                        ) : (filteredIssues as any[]).slice(0, 10).map((iss: any) => (
+                          <Card key={iss.id} variant="secondary" onClick={() => setDrawer({ kind: 'issue', id: iss.id })} style={{ backgroundColor: '#151b23' }} className="cursor-pointer hover:brightness-125 transition-all">
+                            <Card.Content>
+                              <div className="flex items-start gap-2">
+                                <IssueIcon status={iss.status} size={16} className="mt-0.5 shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-xs font-medium truncate">{iss.title}</div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[11px] text-muted">#{iss.number} · {iss.status}</span>
+                                    {iss.author && <GitHubUser login={iss.author} size={14} />}
+                                  </div>
+                                </div>
+                                <RiAddLine className="shrink-0 ml-2" />
                               </div>
-                              <RiAddLine />
-                            </div>
-                          </Card.Content>
-                        </Card>
-                      ))}
-                      {(filteredIssues as any[]).length > 10 && (
-                        <div className="text-xs text-center py-1 text-muted">+ {(filteredIssues as any[]).length - 10} more</div>
-                      )}
-                    </div>
-                  </Disclosure.Content>
-                </Disclosure>
+                            </Card.Content>
+                          </Card>
+                        ))}
+                        {(filteredIssues as any[]).length > 10 && (
+                          <div className="text-xs text-center py-1 text-muted">+ {(filteredIssues as any[]).length - 10} more</div>
+                        )}
+                      </div>
+                    </Accordion.Body>
+                  </Accordion.Panel>
+                </Accordion.Item>
 
-                <Disclosure id="prs">
-                  <Disclosure.Heading>
-                    <Button slot="trigger" variant="ghost" className="w-full justify-between">
+                <Accordion.Item id="prs">
+                  <Accordion.Heading>
+                    <Accordion.Trigger>
                       <span className="flex items-center gap-2 text-sm font-semibold">
                         <RiGitPullRequestLine /> {(filteredPRs as any[]).length} PRs
                       </span>
-                      <Disclosure.Indicator />
-                    </Button>
-                  </Disclosure.Heading>
-                  <Disclosure.Content>
-                    <div className="space-y-1 px-2 pb-2">
-                      {(filteredPRs as any[]).length === 0 ? (
-                        <div className="text-xs text-center py-6 text-muted">No PRs</div>
-                      ) : (filteredPRs as any[]).slice(0, 10).map((pr: any) => (
-                        <Card key={pr.id} variant="secondary" onClick={() => setDrawer({ kind: 'pr', id: pr.id })}>
-                          <Card.Content>
-                            <div className="flex items-center justify-between">
-                              <div className="min-w-0">
-                                <div className="text-xs font-medium truncate">{pr.title}</div>
-                                <div className="text-[11px] text-muted">PR #{pr.number} · {pr.status}</div>
+                      <Accordion.Indicator />
+                    </Accordion.Trigger>
+                  </Accordion.Heading>
+                  <Accordion.Panel>
+                    <Accordion.Body>
+                      <div className="space-y-1">
+                        {(filteredPRs as any[]).length === 0 ? (
+                          <div className="text-xs text-center py-6 text-muted">No PRs</div>
+                        ) : (filteredPRs as any[]).slice(0, 10).map((pr: any) => (
+                          <Card key={pr.id} variant="secondary" onClick={() => setDrawer({ kind: 'pr', id: pr.id })} style={{ backgroundColor: '#151b23' }} className="cursor-pointer hover:brightness-125 transition-all">
+                            <Card.Content>
+                              <div className="flex items-start gap-2">
+                                <PRIcon status={pr.status} size={16} className="mt-0.5 shrink-0" />
+                                <div className="min-w-0 flex-1">
+                                  <div className="text-xs font-medium truncate">{pr.title}</div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[11px] text-muted">PR #{pr.number} · {pr.status}</span>
+                                    {pr.author && <GitHubUser login={pr.author} size={14} />}
+                                  </div>
+                                </div>
+                                <RiAddLine className="shrink-0 ml-2" />
                               </div>
-                              <RiAddLine />
-                            </div>
-                          </Card.Content>
-                        </Card>
-                      ))}
-                      {(filteredPRs as any[]).length > 10 && (
-                        <div className="text-xs text-center py-1 text-muted">+ {(filteredPRs as any[]).length - 10} more</div>
-                      )}
-                    </div>
-                  </Disclosure.Content>
-                </Disclosure>
+                            </Card.Content>
+                          </Card>
+                        ))}
+                        {(filteredPRs as any[]).length > 10 && (
+                          <div className="text-xs text-center py-1 text-muted">+ {(filteredPRs as any[]).length - 10} more</div>
+                        )}
+                      </div>
+                    </Accordion.Body>
+                  </Accordion.Panel>
+                </Accordion.Item>
 
-                <Disclosure id="events">
-                  <Disclosure.Heading>
-                    <Button slot="trigger" variant="ghost" className="w-full justify-between">
+                <Accordion.Item id="events">
+                  <Accordion.Heading>
+                    <Accordion.Trigger>
                       <span className="flex items-center gap-2 text-sm font-semibold">
                         <RiTimeLine /> Activity · {(filteredEvents as any[]).length} events
                       </span>
-                      <Disclosure.Indicator />
-                    </Button>
-                  </Disclosure.Heading>
-                  <Disclosure.Content>
-                    <div className="space-y-2 px-2 pb-2">
-                      {(filteredEvents as any[]).length === 0 ? (
-                        <div className="text-xs text-center py-6 text-muted">No activity yet</div>
-                      ) : (filteredEvents as any[]).slice(0, 20).map((evt: any) => (
-                        <Card key={evt.id} onClick={() => setDrawer({ kind: 'event', id: evt.id })}>
-                          <Card.Content>
-                            <div className="flex gap-3 text-xs">
-                              <span className="min-w-[60px] text-muted shrink-0">
-                                {new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                              </span>
-                              <span className="flex-1 min-w-0">
-                                <span className="font-semibold">{evt.title}</span>
-                                <span className="ml-2 text-muted line-clamp-1">{evt.detail}</span>
-                              </span>
-                            </div>
-                          </Card.Content>
-                        </Card>
-                      ))}
-                    </div>
-                  </Disclosure.Content>
-                </Disclosure>
-              </DisclosureGroup>
+                      <Accordion.Indicator />
+                    </Accordion.Trigger>
+                  </Accordion.Heading>
+                  <Accordion.Panel>
+                    <Accordion.Body>
+                      <div className="space-y-2">
+                        {(filteredEvents as any[]).length === 0 ? (
+                          <div className="text-xs text-center py-6 text-muted">No activity yet</div>
+                        ) : (filteredEvents as any[]).slice(0, 20).map((evt: any) => (
+                          <Card key={evt.id} onClick={() => setDrawer({ kind: 'event', id: evt.id })}>
+                            <Card.Content>
+                              <div className="flex gap-3 text-xs">
+                                <span className="min-w-[60px] text-muted shrink-0">
+                                  {new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                                <span className="flex-1 min-w-0">
+                                  <span className="font-semibold">{evt.title}</span>
+                                  <span className="ml-2 text-muted line-clamp-1">{evt.detail}</span>
+                                </span>
+                              </div>
+                            </Card.Content>
+                          </Card>
+                        ))}
+                      </div>
+                    </Accordion.Body>
+                  </Accordion.Panel>
+                </Accordion.Item>
+              </Accordion>
             </Card>
           </Tabs.Panel>
         </Tabs>
 
-        <Drawer>
-          <Drawer.Backdrop isOpen={!!drawer} onOpenChange={(open) => { if (!open) setDrawer(null); }}>
-            <Drawer.Content placement="right" className="w-[92vw] sm:w-[640px] sm:max-w-[640px] max-w-[92vw]">
-              <Drawer.Dialog>
-                <Drawer.Header>
-                  <Drawer.Heading>
-                    {drawer?.kind === 'issue' && `Issue #${selectedIssue?.number ?? ''}`}
-                    {drawer?.kind === 'pr' && `PR #${selectedPR?.number ?? ''}`}
-                    {drawer?.kind === 'comment' && [
-                      selectedComment?.issueNumber ? `Issue #${selectedComment.issueNumber}` : '',
-                      selectedComment?.prNumber ? `PR #${selectedComment.prNumber}` : '',
-                    ].filter(Boolean).join(' · ')}
-                    {drawer?.kind === 'event' && 'Event'}
-                  </Drawer.Heading>
-                </Drawer.Header>
-                <Drawer.CloseTrigger />
-                <Drawer.Body>
-                  {drawer?.kind === 'issue' && selectedIssue && (
-                    <>
-                      <div className="text-xs text-muted">{selectedIssue.status}</div>
-                      <h2 className="text-sm font-semibold">{selectedIssue.title}</h2>
-                      <Card><Card.Content><div className="text-xs whitespace-pre-wrap leading-relaxed">{selectedIssue.body}</div></Card.Content></Card>
-                      {selectedIssue.analysis && (
-                        <Card>
-                          <Card.Content>
-                            <div className="font-semibold flex items-center gap-1.5 mb-1"><RiBrainLine /> Root Cause</div>
-                            <div className="text-xs">{selectedIssue.analysis.rootCause}</div>
-                            {selectedIssue.analysis.affectedFiles?.length > 0 && (
-                              <div className="text-[11px] text-muted mt-1">Affected: {selectedIssue.analysis.affectedFiles.join(', ')}</div>
-                            )}
-                          </Card.Content>
-                        </Card>
-                      )}
-                    </>
-                  )}
-                  {drawer?.kind === 'pr' && selectedPR && (
-                    <>
-                      <div className="flex items-center gap-2 text-xs"><Chip size="sm">{selectedPR.status}</Chip><span>PR #{selectedPR.number}</span></div>
-                      <h2 className="text-sm font-semibold">{selectedPR.title}</h2>
-                      {selectedPR.summary && <Card><Card.Content><FormattedSummaryContent text={selectedPR.summary} /></Card.Content></Card>}
+        <Drawer.Backdrop isOpen={!!drawer} onOpenChange={(open) => { if (!open) setDrawer(null); }}>
+          <Drawer.Content placement="right">
+            <Drawer.Dialog className="w-[92vw] sm:w-[640px] max-w-[640px]">
+              <Drawer.CloseTrigger />
+              <Drawer.Header>
+                <Drawer.Heading>
+                  {drawer?.kind === 'issue' && (selectedIssue ? (repos as any[]).find((r:any) => r.id === selectedIssue.repoId)?.fullName ?? '' : '')}
+                  {drawer?.kind === 'pr' && (selectedPR ? (repos as any[]).find((r:any) => r.id === selectedPR.repoId)?.fullName ?? '' : '')}
+                  {drawer?.kind === 'comment' && [
+                    selectedComment?.issueNumber ? `Issue #${selectedComment.issueNumber}` : '',
+                    selectedComment?.prNumber ? `PR #${selectedComment.prNumber}` : '',
+                  ].filter(Boolean).join(' · ')}
+                  {drawer?.kind === 'event' && 'Event'}
+                </Drawer.Heading>
+              </Drawer.Header>
+              <Drawer.Body className="space-y-3" style={{ color: 'var(--foreground)' }}>
+                {drawer?.kind === 'issue' && selectedIssue && (
+                  <>
+                    {/* Title row — large, GitHub-style */}
+                    <h2 className="text-xl font-semibold text-foreground leading-snug">
+                      {selectedIssue.title}
+                      <span className="ml-2 text-xl font-light text-muted">#{selectedIssue.number}</span>
+                    </h2>
+
+                    {/* Status badge pill */}
+                    <div>
+                      {(() => {
+                        const s = selectedIssue.status?.toLowerCase() ?? '';
+                        const isClosed = s === 'closed' || s === 'rejected' || s === 'merged';
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${isClosed ? 'bg-[#8957e5]/20 text-[#c084fc]' : 'bg-[#238636]/20 text-[#3fb950]'}`}>
+                            <IssueIcon status={selectedIssue.status} size={14} />
+                            {isClosed ? 'Closed' : 'Open'}
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Author row */}
+                    {selectedIssue.author && (
+                      <div className="flex items-center justify-between px-3 py-2 -mb-px rounded-t-lg" style={{ background: '#388bfd1a', border: '1px solid #388bfd26' }}>
+                        <GitHubUser login={selectedIssue.author} />
+                        <span className="text-[10px] border rounded-full px-2 py-0.5 text-muted" style={{ borderColor: '#388bfd26' }}>Owner</span>
+                      </div>
+                    )}
+
+                    {/* Body */}
+                    <div className="rounded-b-lg rounded-tr-lg p-4" style={{ border: '1px solid #388bfd26', borderTop: selectedIssue.author ? 'none' : '1px solid #388bfd26' }}>
+                      <MarkdownBody>{selectedIssue.body}</MarkdownBody>
+                    </div>
+
+                    {selectedIssue.analysis?.rootCause && (
                       <Card>
-                        <Card.Header>
-                          <span className="flex items-center gap-1.5 text-xs"><RiCodeSSlashLine /> Diff</span>
-                          {liveDiff && <span className="text-xs text-muted">{(liveDiff as any).files?.length} files</span>}
-                        </Card.Header>
+                        <Card.Content>
+                          <div className="font-semibold flex items-center gap-1.5 mb-1 text-foreground"><RiBrainLine /> Root Cause</div>
+                          <div className="text-xs text-foreground">{selectedIssue.analysis.rootCause}</div>
+                          {selectedIssue.analysis.affectedFiles?.length > 0 && (
+                            <div className="text-[11px] text-muted mt-1">Affected: {selectedIssue.analysis.affectedFiles.join(', ')}</div>
+                          )}
+                        </Card.Content>
+                      </Card>
+                    )}
+                  </>
+                )}
+                {drawer?.kind === 'pr' && selectedPR && (
+                  <>
+                    {/* Title row */}
+                    <h2 className="text-xl font-semibold text-foreground leading-snug">
+                      {selectedPR.title}
+                      <span className="ml-2 text-xl font-light text-muted">#{selectedPR.number}</span>
+                    </h2>
+
+                    {/* Status badge pill */}
+                    <div>
+                      {(() => {
+                        const s = selectedPR.status?.toLowerCase() ?? '';
+                        const isMerged = s === 'merged';
+                        const isClosed = s === 'closed' || s === 'rejected';
+                        return (
+                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${isMerged ? 'bg-[#8957e5]/20 text-[#c084fc]' : isClosed ? 'bg-[#f85149]/20 text-[#f85149]' : 'bg-[#238636]/20 text-[#3fb950]'}`}>
+                            <PRIcon status={selectedPR.status} size={14} />
+                            {isMerged ? 'Merged' : isClosed ? 'Closed' : 'Open'}
+                          </span>
+                        );
+                      })()}
+                    </div>
+
+                    {/* Author row */}
+                    {selectedPR.author && (
+                      <div className="flex items-center justify-between px-3 py-2 -mb-px rounded-t-lg" style={{ background: '#388bfd1a', border: '1px solid #388bfd26' }}>
+                        <GitHubUser login={selectedPR.author} />
+                        <span className="text-[10px] border rounded-full px-2 py-0.5 text-muted" style={{ borderColor: '#388bfd26' }}>Owner</span>
+                      </div>
+                    )}
+
+                    {/* Body */}
+                    {selectedPR.summary && (
+                      <div className="p-4" style={{ border: '1px solid #388bfd26', borderTop: selectedPR.author ? 'none' : '1px solid #388bfd26', borderRadius: selectedPR.author ? '0 0 8px 8px' : '8px' }}>
+                        <MarkdownBody>{selectedPR.summary}</MarkdownBody>
+                      </div>
+                    )}
+
+                    <Card>
+                      <Card.Header>
+                        <span className="flex items-center gap-1.5 text-xs"><RiCodeSSlashLine /> Diff</span>
+                        {liveDiff && <span className="text-xs text-muted">{(liveDiff as any).files?.length} files</span>}
+                      </Card.Header>
+                      <Card.Content>
+                        <div className="text-xs whitespace-pre-wrap font-mono max-h-[400px] overflow-auto">
+                          {liveDiff ? (liveDiff as any).diff?.slice(0, 8000) || 'No diff' : '// diff not yet generated'}
+                        </div>
+                      </Card.Content>
+                    </Card>
+                    {selectedPR.testResults && (
+                      <Card>
+                        <Card.Content>
+                          <div className="flex justify-between mb-1">
+                            <span className="font-semibold flex items-center gap-1.5 text-foreground"><RiShieldCheckLine /> Tests</span>
+                            <Chip size="sm">{selectedPR.testResults.passed}/{selectedPR.testResults.total}</Chip>
+                          </div>
+                          <div className="text-xs whitespace-pre-wrap font-mono">{selectedPR.testResults.log}</div>
+                        </Card.Content>
+                      </Card>
+                    )}
+                    {selectedPR.status === 'awaiting_approval' && (
+                      <Button variant="primary" onPress={() => approvePRMutation.mutate({ number: selectedPR.number })} isLoading={approvePRMutation.isPending}>
+                        Approve & Merge
+                      </Button>
+                    )}
+                  </>
+                )}
+                {drawer?.kind === 'comment' && selectedComment && (
+                  <>
+                    <div className="flex items-center gap-2 text-xs">
+                      {selectedComment.issueNumber && <Badge size="sm">Issue #{selectedComment.issueNumber}</Badge>}
+                      {selectedComment.prNumber && <Badge size="sm" color="accent">PR #{selectedComment.prNumber}</Badge>}
+                      <GitHubUser login={selectedComment.author} />
+                    </div>
+                    <div className="border border-border rounded-lg p-4">
+                      <MarkdownBody>{selectedComment.body}</MarkdownBody>
+                      {selectedComment.aiReasoning && <p className="text-xs text-muted mt-2 pt-2 border-t border-border">AI: {selectedComment.aiReasoning}</p>}
+                    </div>
+                    {selectedComment.prNumber && (
+                      <Card>
+                        <Card.Header><span className="flex items-center gap-1.5 text-xs"><RiCodeSSlashLine /> Diff</span></Card.Header>
                         <Card.Content>
                           <div className="text-xs whitespace-pre-wrap font-mono max-h-[400px] overflow-auto">
-                            {liveDiff ? (liveDiff as any).diff?.slice(0, 8000) || 'No diff' : '// diff not yet generated'}
+                            {liveDiff ? (liveDiff as any).diff?.slice(0, 8000) || 'No diff' : 'Loading diff…'}
                           </div>
                         </Card.Content>
                       </Card>
-                      {selectedPR.testResults && (
-                        <Card>
-                          <Card.Content>
-                            <div className="flex justify-between mb-1">
-                              <span className="font-semibold flex items-center gap-1.5"><RiShieldCheckLine /> Tests</span>
-                              <Chip size="sm">{selectedPR.testResults.passed}/{selectedPR.testResults.total}</Chip>
-                            </div>
-                            <div className="text-xs whitespace-pre-wrap font-mono">{selectedPR.testResults.log}</div>
-                          </Card.Content>
-                        </Card>
-                      )}
-                      {selectedPR.status === 'awaiting_approval' && (
-                        <Button variant="primary" onPress={() => approvePRMutation.mutate({ number: selectedPR.number })} isLoading={approvePRMutation.isPending}>
+                    )}
+                    <div className="flex gap-2">
+                      {selectedComment.isPRReady && selectedComment.prNumber && (
+                        <Button variant="primary" onPress={() => approvePRMutation.mutate({ number: selectedComment.prNumber })} isLoading={approvePRMutation.isPending} startContent={<RiCheckDoubleLine />}>
                           Approve & Merge
                         </Button>
                       )}
-                    </>
-                  )}
-                  {drawer?.kind === 'comment' && selectedComment && (
-                    <>
-                      <div className="flex items-center gap-2 text-xs">
-                        {selectedComment.issueNumber && <Badge size="sm">Issue #{selectedComment.issueNumber}</Badge>}
-                        {selectedComment.prNumber && <Badge size="sm" color="accent">PR #{selectedComment.prNumber}</Badge>}
-                        <span className="text-muted">by @{selectedComment.author}</span>
-                      </div>
-                      <Card>
-                        <Card.Content>
-                          <div className="text-sm whitespace-pre-wrap leading-relaxed">{selectedComment.body}</div>
-                          {selectedComment.aiReasoning && <p className="text-xs text-muted mt-2">AI: {selectedComment.aiReasoning}</p>}
-                        </Card.Content>
-                      </Card>
-                      {selectedComment.prNumber && (
-                        <Card>
-                          <Card.Header><span className="flex items-center gap-1.5 text-xs"><RiCodeSSlashLine /> Diff</span></Card.Header>
-                          <Card.Content>
-                            <div className="text-xs whitespace-pre-wrap font-mono max-h-[400px] overflow-auto">
-                              {liveDiff ? (liveDiff as any).diff?.slice(0, 8000) || 'No diff' : 'Loading diff…'}
-                            </div>
-                          </Card.Content>
-                        </Card>
-                      )}
-                      <div className="flex gap-2">
-                        {selectedComment.isPRReady && selectedComment.prNumber && (
-                          <Button variant="primary" onPress={() => approvePRMutation.mutate({ number: selectedComment.prNumber })} isLoading={approvePRMutation.isPending} startContent={<RiCheckDoubleLine />}>
-                            Approve & Merge
-                          </Button>
-                        )}
-                        <Button variant="secondary" onPress={() => dismissMutation.mutate({ id: selectedComment.id })}>Mark as read</Button>
-                      </div>
-                    </>
-                  )}
-                  {drawer?.kind === 'event' && selectedEvent && (
-                    <>
-                      <div className="text-xs text-muted">{new Date(selectedEvent.timestamp).toLocaleString()}</div>
-                      <h2 className="text-sm font-semibold">{selectedEvent.title}</h2>
-                      <p className="text-xs leading-relaxed">{selectedEvent.detail}</p>
-                      <div className="text-xs text-muted">Type: {selectedEvent.type}</div>
-                    </>
-                  )}
-                </Drawer.Body>
-              </Drawer.Dialog>
-            </Drawer.Content>
-          </Drawer.Backdrop>
-        </Drawer>
+                      <Button variant="secondary" onPress={() => dismissMutation.mutate({ id: selectedComment.id })}>Mark as read</Button>
+                    </div>
+                  </>
+                )}
+                {drawer?.kind === 'event' && selectedEvent && (
+                  <>
+                    <div className="text-xs text-muted">{new Date(selectedEvent.timestamp).toLocaleString()}</div>
+                    <h2 className="text-sm font-semibold text-foreground">{selectedEvent.title}</h2>
+                    <p className="text-xs leading-relaxed text-foreground">{selectedEvent.detail}</p>
+                    <div className="text-xs text-muted">Type: {selectedEvent.type}</div>
+                  </>
+                )}
+              </Drawer.Body>
+            </Drawer.Dialog>
+          </Drawer.Content>
+        </Drawer.Backdrop>
 
         <BYOKSettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} initialSettings={settings} onSuccess={() => queryClient.invalidateQueries({ queryKey: orpc.maintainer.getSettings.key() })} />
         <RunWorkflowModal isOpen={showNewWorkflowModal} onClose={() => setShowNewWorkflowModal(false)} onSuccess={(issueNum) => { if (issueNum) setDrawer({ kind: 'issue', id: issueNum }); queryClient.invalidateQueries({ queryKey: orpc.maintainer.key() }); setActiveTab('logs'); }} />

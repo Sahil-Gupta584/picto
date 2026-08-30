@@ -114,8 +114,13 @@ export const getIssues = authed.handler(async ({ context }) => {
       title: w.title,
       body: w.body,
       author: w.author,
-      status: w.status as 'open' | 'investigating' | 'awaiting_approval' | 'merged' | 'rejected',
+      status: w.state === 'closed'
+        ? (w.status === 'merged' ? 'merged' : 'closed')
+        : w.status === 'awaiting_approval' ? 'pr open'
+        : w.status === 'investigating' ? 'investigating'
+        : 'open',
       state: w.state as 'open' | 'closed',
+      prNumber: w.prNumber ?? null,
       createdAt: w.createdAt.toISOString(),
       events: [],
       analysis: {

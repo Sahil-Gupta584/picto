@@ -29,7 +29,7 @@
   --focus: #8dd6ff;
   --foreground: #ffffff;
   --muted: #9198a1;
-  --overlay: #010409;
+  --overlay: #050c19;
   --overlay-foreground: #ffffff;
   --scrollbar: #21262d;
   --segment: #0d1117;
@@ -37,7 +37,7 @@
   --separator: #21262d;
   --success: #3fb950;
   --success-foreground: #0d1117;
-  --surface: #010409;
+  --surface: #0d1117;
   --surface-foreground: #ffffff;
   --surface-secondary: #0d1117;
   --surface-secondary-foreground: #ffffff;
@@ -83,4 +83,14 @@ html, body {
 [data-slot="tabs-tab"][data-hovered="true"]:not([data-selected="true"]) {
   background-color: #161b22 !important;
   color: var(--foreground) !important;
+}
+
+.accordion--surface {
+    & .accordion__trigger {
+        @media (hover: hover) {
+            &:hover:not([aria-expanded="true"]), &[data-hovered="true"]:not([aria-expanded="true"]) {
+                background-color: #656c7633;
+            }
+        }
+    }
 }
