@@ -234,7 +234,7 @@ function DashboardComponent() {
                 <span className="flex items-center gap-2">
                   <RiTimeLine className="shrink-0" />
                   <span>Logs</span>
-                  <Chip size="sm" variant="secondary" className="shrink-0">{(filteredIssues as any[]).length + (filteredPRs as any[]).length}</Chip>
+                  <Chip size="sm" variant="secondary" className="shrink-0">{(filteredEvents as any[]).length}</Chip>
                 </span>
               </Tabs.Tab>
               <Tabs.Tab id="attention" className="whitespace-nowrap">
@@ -309,6 +309,7 @@ function DashboardComponent() {
                     <Accordion.Trigger>
                       <span className="flex items-center gap-2 text-sm font-semibold">
                         <RiBugLine /> {(filteredIssues as any[]).length} new issues
+                        <span className="text-[10px] font-normal text-muted">since last visit</span>
                       </span>
                       <Accordion.Indicator />
                     </Accordion.Trigger>
@@ -348,6 +349,7 @@ function DashboardComponent() {
                     <Accordion.Trigger>
                       <span className="flex items-center gap-2 text-sm font-semibold">
                         <RiGitPullRequestLine /> {(filteredPRs as any[]).length} PRs
+                        <span className="text-[10px] font-normal text-muted">since last visit</span>
                       </span>
                       <Accordion.Indicator />
                     </Accordion.Trigger>
@@ -396,21 +398,34 @@ function DashboardComponent() {
                       <div className="space-y-2">
                         {(filteredEvents as any[]).length === 0 ? (
                           <div className="text-xs text-center py-6 text-muted">No activity yet</div>
-                        ) : (filteredEvents as any[]).slice(0, 20).map((evt: any) => (
-                          <Card key={evt.id} onClick={() => setDrawer({ kind: 'event', id: evt.id })}>
-                            <Card.Content>
-                              <div className="flex gap-3 text-xs">
-                                <span className="min-w-[60px] text-muted shrink-0">
-                                  {new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                </span>
-                                <span className="flex-1 min-w-0">
-                                  <span className="font-semibold">{evt.title}</span>
-                                  <span className="ml-2 text-muted line-clamp-1">{evt.detail}</span>
-                                </span>
+                        ) : (filteredEvents as any[]).slice(0, 20).map((evt: any) => {
+                          const typeColor: Record<string, string> = {
+                            issue_rejected: 'var(--danger)',
+                            clarification_requested: 'var(--warning)',
+                            sub_agent_spawned: 'var(--accent)',
+                            sub_agent_completed: 'var(--success)',
+                            pr_created: 'var(--success)',
+                            pr_merged: 'var(--success)',
+                            issue_triaged: 'var(--accent)',
+                          };
+                          const color = typeColor[evt.type] || 'var(--muted)';
+                          return (
+                            <button
+                              key={evt.id}
+                              onClick={() => setDrawer({ kind: 'event', id: evt.id })}
+                              className="w-full text-left flex items-start gap-3 px-3 py-2.5 rounded-lg hover:bg-[#151b23] transition-colors"
+                            >
+                              <div className="mt-1 shrink-0 h-2 w-2 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-semibold text-foreground">{evt.title}</span>
+                                  <span className="text-[10px] text-muted shrink-0">{new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
+                                <p className="text-[11px] text-muted line-clamp-1 mt-0.5">{evt.detail}</p>
                               </div>
-                            </Card.Content>
-                          </Card>
-                        ))}
+                            </button>
+                          );
+                        })}
                       </div>
                     </Accordion.Body>
                   </Accordion.Panel>
