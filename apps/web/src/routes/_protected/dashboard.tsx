@@ -417,9 +417,9 @@ function DashboardComponent() {
                             >
                               <div className="mt-1.5 shrink-0 h-2.5 w-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
                               <div className="min-w-0 flex-1">
-                                <span className="text-sm font-semibold text-foreground">{evt.title}</span>
-                                <div className="text-xs text-muted mt-0.5">{new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
-                                <p className="text-xs text-muted line-clamp-2 mt-0.5 leading-relaxed">{evt.detail}</p>
+                                <span className="text-base font-semibold text-foreground">{evt.title}</span>
+                                <div className="text-[10px] text-muted mt-0.5">{new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                <p className="text-sm text-muted line-clamp-2 mt-1.5 leading-relaxed">{evt.detail}</p>
                               </div>
                             </button>
                           );
