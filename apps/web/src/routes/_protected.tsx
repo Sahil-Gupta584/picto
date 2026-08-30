@@ -48,8 +48,8 @@ function ProtectedLayout() {
   const displayEmail = user?.email ?? ''
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#0d0e12] text-[#ffffff] font-sans antialiased">
-      <nav className="border-b border-white/[0.07] bg-[#121318]/95 px-4 sm:px-6 sticky top-0 z-40 backdrop-blur-md">
+    <div className="flex min-h-screen flex-col bg-[var(--background)] text-[var(--foreground)] font-sans antialiased">
+      <nav className="border-b border-[var(--border)] bg-[var(--surface)] px-4 sm:px-6 sticky top-0 z-40 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-7xl items-center justify-between">
           <span
             className="flex items-center gap-2.5 cursor-pointer select-none group"
@@ -59,10 +59,10 @@ function ProtectedLayout() {
               <SiDuckduckgo className="text-sm" />
             </span>
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold tracking-tight text-white group-hover:text-neutral-200 transition">
+              <span className="text-sm font-semibold tracking-tight text-[var(--foreground)] group-hover:opacity-80 transition">
                 Picto
               </span>
-              <span className="text-[10px] font-mono text-neutral-400 bg-white/[0.05] border border-white/[0.08] px-1.5 py-0.2 rounded">
+              <span className="text-[10px] font-mono text-[var(--muted)] bg-[var(--surface-secondary)] border border-[var(--border)] px-1.5 py-0.5 rounded">
                 studio
               </span>
             </div>
@@ -71,34 +71,34 @@ function ProtectedLayout() {
           <div className="flex items-center gap-3">
             <Dropdown>
               <Dropdown.Trigger>
-                <div className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/[0.08] bg-[#171920] px-2.5 py-1 transition hover:border-white/20 hover:bg-[#1e2029] focus:outline-none shadow-sm">
-                  <Avatar size="sm" className="h-6 w-6 text-xs bg-[#242733] text-white border border-white/10">
+                <div className="flex cursor-pointer items-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface-secondary)] px-2.5 py-1 transition hover:border-[var(--accent)] focus:outline-none shadow-sm">
+                  <Avatar size="sm" className="h-6 w-6 text-xs bg-[var(--surface-tertiary)] text-[var(--foreground)] border border-[var(--border)]">
                     {user?.image && (
                       <Avatar.Image src={user.image} alt={displayName} />
                     )}
                     <Avatar.Fallback>{initials}</Avatar.Fallback>
                   </Avatar>
-                  <span className="hidden text-xs font-medium text-neutral-200 sm:block">
+                  <span className="hidden text-xs font-medium text-[var(--foreground)] sm:block">
                     {displayName}
                   </span>
                 </div>
               </Dropdown.Trigger>
 
               <Dropdown.Popover>
-                <Dropdown.Menu aria-label="User menu" className="bg-[#15171d] border border-white/[0.1] text-white rounded-xl p-1 shadow-2xl backdrop-blur-xl">
+                <Dropdown.Menu aria-label="User menu" className="bg-[var(--overlay)] border border-[var(--border)] text-[var(--foreground)] rounded-xl p-1 shadow-2xl backdrop-blur-xl">
                   <Dropdown.Item id="identity" textValue={displayName} onAction={() => {}}>
                     <div className="flex items-center gap-2.5 py-1 px-1">
-                      <Avatar size="md" className="h-8 w-8 bg-[#242733] text-white border border-white/10">
+                      <Avatar size="md" className="h-8 w-8 bg-[var(--surface-tertiary)] text-[var(--foreground)] border border-[var(--border)]">
                         {user?.image && (
                           <Avatar.Image src={user.image} alt={displayName} />
                         )}
                         <Avatar.Fallback>{initials}</Avatar.Fallback>
                       </Avatar>
                       <div className="min-w-0">
-                        <p className="truncate text-xs font-semibold text-white">
+                        <p className="truncate text-xs font-semibold text-[var(--foreground)]">
                           {displayName}
                         </p>
-                        <p className="truncate text-[11px] text-neutral-400">
+                        <p className="truncate text-[11px] text-[var(--muted)]">
                           {displayEmail}
                         </p>
                       </div>
@@ -110,8 +110,8 @@ function ProtectedLayout() {
                     textValue="Dashboard"
                     onAction={() => router.navigate({ to: '/dashboard' })}
                   >
-                    <div className="flex items-center gap-2 text-xs font-medium py-1 text-neutral-200 hover:text-white">
-                      <RiDashboardLine className="text-sm text-[#1890ff]" />
+                    <div className="flex items-center gap-2 text-xs font-medium py-1 text-[var(--foreground)]">
+                      <RiDashboardLine className="text-sm text-[var(--accent)]" />
                       <span>Workspace Dashboard</span>
                     </div>
                   </Dropdown.Item>
@@ -121,8 +121,8 @@ function ProtectedLayout() {
                     textValue="Billing"
                     onAction={() => router.navigate({ to: '/billing' })}
                   >
-                    <div className="flex items-center gap-2 text-xs font-medium py-1 text-neutral-200 hover:text-white">
-                      <RiMoneyDollarCircleLine className="text-sm text-emerald-400" />
+                    <div className="flex items-center gap-2 text-xs font-medium py-1 text-[var(--foreground)]">
+                      <RiMoneyDollarCircleLine className="text-sm text-[var(--success)]" />
                       <span>Billing & Quota</span>
                     </div>
                   </Dropdown.Item>
@@ -132,8 +132,8 @@ function ProtectedLayout() {
                     textValue="BYOK & Config"
                     onAction={() => window.dispatchEvent(new CustomEvent('open-byok-settings'))}
                   >
-                    <div className="flex items-center gap-2 text-xs font-medium py-1 text-neutral-200 hover:text-white">
-                      <RiSettings4Line className="text-sm text-[#118af3]" />
+                    <div className="flex items-center gap-2 text-xs font-medium py-1 text-[var(--foreground)]">
+                      <RiSettings4Line className="text-sm text-[var(--accent)]" />
                       <span>BYOK & Config</span>
                     </div>
                   </Dropdown.Item>
@@ -143,7 +143,7 @@ function ProtectedLayout() {
                     textValue="Sign out"
                     onAction={handleSignOut}
                   >
-                    <div className="flex items-center gap-2 text-xs font-medium text-rose-400 hover:text-rose-300 py-1">
+                    <div className="flex items-center gap-2 text-xs font-medium text-[var(--danger)] py-1">
                       <RiLogoutBoxLine className="text-sm" />
                       <span>Sign out</span>
                     </div>

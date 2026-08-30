@@ -3,6 +3,37 @@ import { prisma } from "#/db";
 import { trueforge } from "#/lib/trueforge";
 import { githubService } from "#/lib/github";
 
+function isPRReadyComment(body: string): boolean {
+  const lower = body.toLowerCase();
+  return (
+    lower.includes("pr is ready for review") ||
+    lower.includes("ready for review") ||
+    lower.includes("please review") ||
+    lower.includes("ready to merge") ||
+    lower.includes("ptal")
+  );
+}
+
+async function classifyCommentWithAI(params: {
+  issueTitle: string;
+  issueBody: string;
+  commentBody: string;
+  commentAuthor: string;
+  repoFullName: string;
+}): Promise<{ isQuestion: boolean; shouldNotify: boolean; isPRReady: boolean; reason: string }> {
+  const isPRReady = isPRReadyComment(params.commentBody);
+  const lower = params.commentBody.toLowerCase();
+  const hasQuestion = lower.includes("?") || lower.includes("how ") || lower.includes("what ") || lower.includes("why ") || lower.includes("can you") || lower.includes("could you") || lower.includes("help");
+  const isQuestion = hasQuestion || lower.includes("clarify") || lower.includes("question");
+  const shouldNotify = isQuestion || isPRReady;
+  return {
+    isQuestion,
+    shouldNotify,
+    isPRReady,
+    reason: isPRReady ? "PR ready for review detected" : isQuestion ? "Question detected" : "No action needed",
+  };
+}
+
 // Simple spam detection patterns for PRs
 const SPAM_PATTERNS = [
   /\b(crypto|bitcoin|ethereum|nft|token|airdrop|free money|earn money|make money)\b/i,
@@ -152,6 +183,88 @@ async function handlePost({ request }: { request: Request }) {
         }),
         { status: 202, headers: { "Content-Type": "application/json" } }
       );
+    }
+
+    // Handle issue_comment events for Needs Attention inbox
+    if (event === "issue_comment" && payload.action === "created") {
+      const repoFullName = payload.repository.full_name as string;
+      // For issue_comment, GitHub always sends payload.issue regardless of issue or PR.
+      // Detect if it's a PR by presence of payload.issue.pull_request.
+      const isPRContext = !!payload.issue?.pull_request;
+      const issueNumber: number | null = isPRContext ? null : (payload.issue?.number ?? null);
+      const prNumber: number | null = isPRContext ? (payload.issue?.number ?? null) : null;
+      const comment = payload.comment;
+      const commentAuthor = comment?.user?.login || "unknown";
+      const commentBody: string = comment?.body || "";
+      const githubCommentId = String(comment?.id || `${Date.now()}`);
+
+      const configuredRepo = await prisma.maintainerRepo.findFirst({
+        where: { fullName: { equals: repoFullName, mode: "insensitive" } },
+      });
+
+      if (!configuredRepo) {
+        return new Response(JSON.stringify({ status: "ignored", message: "Repo not connected" }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+
+      // Dedupe
+      const existing = await prisma.maintainerComment.findUnique({ where: { githubCommentId } });
+      if (existing) {
+        return new Response(JSON.stringify({ status: "duplicate", id: existing.id }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+
+      const isFromMaintainer = commentAuthor.toLowerCase() === payload.repository.owner.login.toLowerCase();
+
+      // If from maintainer, skip entirely — no store, no notify
+      if (isFromMaintainer) {
+        return new Response(JSON.stringify({ status: "ignored", reason: "maintainer" }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+
+      // Classify comment via AI/heuristic
+      const issue = payload.issue || payload.pull_request;
+      const classification = await classifyCommentWithAI({
+        issueTitle: issue?.title || "",
+        issueBody: issue?.body || "",
+        commentBody,
+        commentAuthor,
+        repoFullName,
+      });
+
+      // Try to discover the opposite number from existing workflow rows
+      let resolvedPrNumber = prNumber;
+      let resolvedIssueNumber = issueNumber;
+      if (issueNumber && !prNumber) {
+        const workflow = await prisma.maintainerWorkflow.findFirst({
+          where: { repoId: configuredRepo.id, issueNumber },
+          select: { prNumber: true },
+        });
+        resolvedPrNumber = workflow?.prNumber ?? null;
+      } else if (prNumber && !issueNumber) {
+        const workflow = await prisma.maintainerWorkflow.findFirst({
+          where: { repoId: configuredRepo.id, prNumber },
+          select: { issueNumber: true },
+        });
+        resolvedIssueNumber = workflow?.issueNumber ?? null;
+      }
+
+      await prisma.maintainerComment.create({
+        data: {
+          repoId: configuredRepo.id,
+          issueNumber: resolvedIssueNumber,
+          prNumber: resolvedPrNumber,
+          githubCommentId,
+          author: commentAuthor,
+          body: commentBody,
+          isPRReady: classification.isPRReady,
+          shouldNotify: classification.shouldNotify,
+          notified: false,
+          aiReasoning: classification.reason,
+        },
+      });
+
+      return new Response(JSON.stringify({ success: true, shouldNotify: classification.shouldNotify, reason: classification.reason }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
     }
 
     return new Response(JSON.stringify({ message: `Event '${event}' action '${payload.action}' ignored` }), {

@@ -9,7 +9,7 @@ export type CustomButtonProps = ButtonProps & {
 }
 
 export function Button({
-  variant = 'secondary',
+  variant = 'ghost',
   color,
   isLoading,
   startContent,
