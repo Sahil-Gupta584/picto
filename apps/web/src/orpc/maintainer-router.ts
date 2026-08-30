@@ -723,6 +723,36 @@ export const rejectPR = authed
     return { success: true, pr: updated }
   })
 
+export const closeIssue = authed
+  .input(z.object({ workflowId: z.string() }))
+  .handler(async ({ input, context }) => {
+    const workflow = await prisma.maintainerWorkflow.findFirst({
+      where: { id: input.workflowId, repo: { userId: context.user.id } },
+      include: { repo: true },
+    })
+    if (!workflow) throw new Error('Workflow not found')
+    const userSettings = await getUserSettings(context.user.id)
+    const [owner, repo] = workflow.repo.fullName.split('/')
+    await githubService.closeIssue(owner, repo, workflow.issueNumber, '🤖 Closed via Picto dashboard.', userSettings.githubToken || undefined)
+    await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { status: 'failed', state: 'closed' } })
+    return { success: true }
+  })
+
+export const closePR = authed
+  .input(z.object({ workflowId: z.string() }))
+  .handler(async ({ input, context }) => {
+    const workflow = await prisma.maintainerWorkflow.findFirst({
+      where: { id: input.workflowId, repo: { userId: context.user.id } },
+      include: { repo: true },
+    })
+    if (!workflow || !workflow.prNumber) throw new Error('Workflow or PR not found')
+    const userSettings = await getUserSettings(context.user.id)
+    const [owner, repo] = workflow.repo.fullName.split('/')
+    await githubService.closePR(owner, repo, workflow.prNumber, '🤖 Closed via Picto dashboard.', userSettings.githubToken || undefined)
+    await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { status: 'rejected', state: 'closed' } })
+    return { success: true }
+  })
+
 export const postIssueComment = authed
   .input(z.object({ workflowId: z.string(), body: z.string().min(1) }))
   .handler(async ({ input, context }) => {
@@ -762,6 +792,8 @@ export const maintainerRouter = {
   dismissComment,
   getLivePrDiff,
   postIssueComment,
+  closeIssue,
+  closePR,
   getSinceLastVisit,
   getAvailableGitHubRepos,
   addRepo,

@@ -225,6 +225,27 @@ function DashboardComponent() {
     })
   );
 
+  const closeIssueMutation = useMutation(
+    orpc.maintainer.closeIssue.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: orpc.maintainer.getIssues.key() });
+        queryClient.invalidateQueries({ queryKey: orpc.maintainer.getSinceLastVisit.key() });
+        setDrawer(null);
+      },
+    })
+  );
+
+  const closePRMutation = useMutation(
+    orpc.maintainer.closePR.mutationOptions({
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: orpc.maintainer.getPRReviews.key() });
+        queryClient.invalidateQueries({ queryKey: orpc.maintainer.getNeedsAttention.key() });
+        queryClient.invalidateQueries({ queryKey: orpc.maintainer.getSinceLastVisit.key() });
+        setDrawer(null);
+      },
+    })
+  );
+
   const dismissMutation = useMutation(
     orpc.maintainer.dismissComment.mutationOptions({
       onSuccess: () => queryClient.invalidateQueries({ queryKey: orpc.maintainer.getNeedsAttention.key() }),
@@ -553,6 +574,11 @@ function DashboardComponent() {
                       </Card>
                     )}
                     <IssueReplyBox workflowId={selectedIssue.id} />
+                    {selectedIssue.status !== 'closed' && selectedIssue.status !== 'rejected' && selectedIssue.status !== 'merged' && (
+                      <Button variant="ghost" className="text-danger text-xs w-full justify-start" onPress={() => closeIssueMutation.mutate({ workflowId: selectedIssue.id })} isLoading={closeIssueMutation.isPending}>
+                        Close issue
+                      </Button>
+                    )}
                   </>
                 )}
                 {drawer?.kind === 'pr' && selectedPR && (
@@ -617,8 +643,18 @@ function DashboardComponent() {
                       </Card>
                     )}
                     {selectedPR.status === 'awaiting_approval' && (
-                      <Button variant="primary" onPress={() => approvePRMutation.mutate({ number: selectedPR.number })} isLoading={approvePRMutation.isPending}>
-                        Approve & Merge
+                      <div className="flex gap-2">
+                        <Button variant="primary" onPress={() => approvePRMutation.mutate({ number: selectedPR.number })} isLoading={approvePRMutation.isPending}>
+                          Approve & Merge
+                        </Button>
+                        <Button variant="ghost" className="text-danger text-xs" onPress={() => closePRMutation.mutate({ workflowId: selectedPR.id })} isLoading={closePRMutation.isPending}>
+                          Close PR
+                        </Button>
+                      </div>
+                    )}
+                    {selectedPR.status !== 'awaiting_approval' && selectedPR.status !== 'merged' && selectedPR.status !== 'rejected' && (
+                      <Button variant="ghost" className="text-danger text-xs w-full justify-start" onPress={() => closePRMutation.mutate({ workflowId: selectedPR.id })} isLoading={closePRMutation.isPending}>
+                        Close PR
                       </Button>
                     )}
                   </>
@@ -704,6 +740,11 @@ function DashboardComponent() {
                           <p className="text-xs text-muted">{selectedEvent.detail}</p>
                         </div>
                         <IssueReplyBox workflowId={linkedIssue.id} />
+                        {linkedIssue.status !== 'closed' && linkedIssue.status !== 'rejected' && linkedIssue.status !== 'merged' && (
+                          <Button variant="ghost" className="text-danger text-xs w-full justify-start" onPress={() => closeIssueMutation.mutate({ workflowId: linkedIssue.id })} isLoading={closeIssueMutation.isPending}>
+                            Close issue
+                          </Button>
+                        )}
                       </>
                     );
                   }
