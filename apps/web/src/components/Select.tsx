@@ -16,24 +16,24 @@ export function Select({
   label,
   placeholder,
   selectedKeys,
+  selectedKey,
   value,
   onChange,
   children,
   required,
   isRequired,
   ...props
-}: CustomSelectProps) {
-  const actualValue =
-    value !== undefined
-      ? value
-      : selectedKeys
-        ? Array.from(selectedKeys)[0]
-        : undefined
+}: CustomSelectProps & { selectedKey?: any }) {
+  const actualSelectedKey = value !== undefined ? value : selectedKey !== undefined ? selectedKey : selectedKeys ? Array.from(selectedKeys as Set<string>)[0] : undefined
+
+  const handleSelectionChange = (key: any) => {
+    if (onChange) onChange(key as string)
+  }
 
   return (
     <HeroSelect
-      value={actualValue}
-      onChange={onChange}
+      selectedKey={actualSelectedKey as any}
+      onSelectionChange={handleSelectionChange as any}
       isRequired={isRequired || required}
       placeholder={placeholder}
       {...props}
