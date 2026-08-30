@@ -54,7 +54,7 @@
 }
 
 html, body {
-  background-color: var(--background);
+  background-color: #010409;
   color: var(--foreground);
   font-family: var(--font-sans);
 }
