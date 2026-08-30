@@ -1,5 +1,4 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useEffect } from 'react';
 import { Button } from '#/components/Button';
 import { SiDuckduckgo, SiGithub } from 'react-icons/si';
 import {
