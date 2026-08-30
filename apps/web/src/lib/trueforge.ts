@@ -1,7 +1,7 @@
 import { TrueForge } from '@truefoundry/trueforge-sdk';
 import { prisma } from '#/db';
 import { githubService, buildConventionalTitle } from '#/lib/github';
-import { buildSupervisorPrompt, buildDeveloperPrompt, buildSetupPrompt, buildDelegationPrompt } from '#/lib/prompts';
+import { buildSupervisorPrompt, buildSetupPrompt, buildDelegationPrompt } from '#/lib/prompts';
 import { resolveModelKey } from '#/lib/models';
 import { execSync } from 'child_process';
 import os from 'os';
@@ -115,19 +115,19 @@ export class TrueForgeMaintainerService {
       const ok = await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
       if (!ok) throw new Error(`Failed to close spam issue #${params.issueNumber}`);
       console.log(`🔒 [AI Orchestrator] Spam issue #${params.issueNumber} closed automatically`);
-      eventTitle = 'Issue rejected (spam)';
+      eventTitle = `Closed issue #${params.issueNumber} (spam)`;
     } else if (decision.category === 'duplicate' && decision.duplicateOf) {
       commentBody = decision.replyComment || `🤖 This issue is a duplicate of #${decision.duplicateOf} and has been closed.\n\n**Reason**: ${decision.reasoning}`;
       const ok = await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
       if (!ok) throw new Error(`Failed to close duplicate issue #${params.issueNumber}`);
       console.log(`🔒 [AI Orchestrator] Duplicate issue #${params.issueNumber} closed (duplicate of #${decision.duplicateOf})`);
-      eventTitle = `Issue closed as duplicate of #${decision.duplicateOf}`;
+      eventTitle = `Closed issue #${params.issueNumber} (duplicate of #${decision.duplicateOf})`;
     } else {
       commentBody = decision.replyComment || `🤖 Issue closed.\n\n**Reason**: ${decision.reasoning}`;
       const ok = await githubService.closeIssue(owner, repoName, params.issueNumber, commentBody, params.githubToken);
       if (!ok) throw new Error(`Failed to close issue #${params.issueNumber}`);
       console.log(`🔒 [AI Orchestrator] Issue #${params.issueNumber} closed`);
-      eventTitle = 'Issue rejected';
+      eventTitle = `Closed issue #${params.issueNumber}`;
     }
 
     await prisma.maintainerWorkflow.update({
@@ -156,7 +156,7 @@ export class TrueForgeMaintainerService {
       data: {
         status: 'awaiting_input',
         prDecisionReasoning: `🤖 Triage: CLARIFY (${decision.category}). ${decision.reasoning}`,
-        events: { create: { type: 'clarification_requested', title: 'Clarification requested', detail: commentBody } },
+        events: { create: { type: 'clarification_requested', title: `Waiting for your response on issue #${params.issueNumber}`, detail: commentBody } },
       },
     });
     console.log(`💬 [AI Orchestrator] Clarification requested on issue #${params.issueNumber}`);
@@ -530,7 +530,7 @@ ${triage.assignee ? `- **Assigned To**: @${triage.assignee}` : ''}
             config: {
               sandbox: { enabled: true },
               require_approval_for_tools: ['merge_pull_request'],
-              mcp_servers: ['github'],
+              mcp_servers: ['github', 'discord'],
             },
           } as any,
         },
@@ -640,6 +640,33 @@ Follow these strict maintainer workflow rules:
 4. Pause for human approval before calling any PR merge tool.
 5. Generate clear risk assessments and test logs for the maintainer dashboard review.`,
     };
+  }
+
+  /**
+   * Create a long-lived Discord bot session with GitHub + Discord MCPs
+   */
+  async createDiscordBotSession(repoFullName: string, options: {
+    modelName: string;
+    instructions: string;
+    mcpUrl: string;
+  }) {
+    const { data: session } = await this.client.sessions.create({
+      agent: {
+        spec: {
+          model: {
+            name: options.modelName,
+            params: { max_tokens: 2048, temperature: 0.2 },
+          },
+          instructions: options.instructions,
+          config: {
+            sandbox: { enabled: false }, // Discord bot sessions don't need sandbox
+            mcp_servers: ['github', 'discord'],
+          },
+        } as any,
+      },
+    });
+    console.log(`🤖 [Discord Bot] Created TrueForge session: ${session.id}`);
+    return session;
   }
 
   /**
@@ -1010,7 +1037,9 @@ git diff "$UP..HEAD"`
           events: {
             create: {
               type: 'sub_agent_completed',
-              title: `Research & Fix Sub-Agent Completed`,
+              title: prCreated
+                ? `Raised PR #${prNumber} for issue #${workflow?.issueNumber}`
+                : `Sub-agent finished — awaiting PR publish`,
               detail: prCreated
                 ? `Sub-agent finished; its git history was published to GitHub as PR #${prNumber}.`
                 : `Sub-agent finished. Human approval required before publishing a PR.${publishNote ? ` Note: ${publishNote}` : ''}`,

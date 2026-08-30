@@ -214,7 +214,6 @@ export const getNeedsAttention = authed.handler(async ({ context }) => {
       select: { repoId: true, issueNumber: true, prNumber: true },
     })
 
-    // Build lookup maps keyed by repoId+number
     const byIssue = new Map<string, number | null>()
     const byPR = new Map<string, number | null>()
     for (const w of workflows) {
@@ -222,15 +221,39 @@ export const getNeedsAttention = authed.handler(async ({ context }) => {
       if (w.prNumber) byPR.set(`${w.repoId}:${w.prNumber}`, w.issueNumber)
     }
 
-    return comments.map((c) => ({
+    const commentItems = comments.map((c) => ({
       ...c,
-      linkedPrNumber: c.issueNumber
-        ? (byIssue.get(`${c.repoId}:${c.issueNumber}`) ?? null)
-        : null,
-      linkedIssueNumber: c.prNumber
-        ? (byPR.get(`${c.repoId}:${c.prNumber}`) ?? null)
-        : null,
+      kind: 'comment' as const,
+      linkedPrNumber: c.issueNumber ? (byIssue.get(`${c.repoId}:${c.issueNumber}`) ?? null) : null,
+      linkedIssueNumber: c.prNumber ? (byPR.get(`${c.repoId}:${c.prNumber}`) ?? null) : null,
     }))
+
+    // Also surface workflows awaiting clarification input
+    const clarifyWorkflows = await prisma.maintainerWorkflow.findMany({
+      where: { status: 'awaiting_input', repo: { userId: context.user.id } },
+      orderBy: { updatedAt: 'desc' },
+      include: { repo: true },
+    })
+
+    const clarifyItems = clarifyWorkflows.map((w) => ({
+      id: w.id,
+      kind: 'clarify' as const,
+      repoId: w.repoId,
+      issueNumber: w.issueNumber,
+      prNumber: w.prNumber ?? null,
+      author: w.author,
+      body: w.prDecisionReasoning || 'Agent needs clarification before proceeding.',
+      isPRReady: false,
+      shouldNotify: true,
+      notified: false,
+      aiReasoning: null,
+      linkedPrNumber: null,
+      linkedIssueNumber: null,
+      createdAt: w.updatedAt,
+      updatedAt: w.updatedAt,
+    }))
+
+    return [...clarifyItems, ...commentItems]
   } catch (err) {
     console.error('Database query error in getNeedsAttention:', err)
     return []
