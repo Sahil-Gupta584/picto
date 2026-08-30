@@ -1,7 +1,7 @@
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { RiKey2Line, RiCheckLine, RiBrainLine, RiGithubFill, RiTerminalBoxLine } from 'react-icons/ri';
+import { RiKey2Line, RiCheckLine, RiBrainLine, RiGithubFill, RiTerminalBoxLine, RiDiscordLine } from 'react-icons/ri';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { orpc } from '#/orpc/client';
 import { useState, useEffect } from 'react';
@@ -18,6 +18,7 @@ const settingsSchema = z.object({
   githubToken: z.string().optional(),
   selectedModel: z.string().optional(),
   trueforgeBaseUrl: z.string().optional(),
+  discordGuildId: z.string().optional(),
 });
 
 type SettingsFormValues = z.infer<typeof settingsSchema>;
@@ -25,7 +26,7 @@ type SettingsFormValues = z.infer<typeof settingsSchema>;
 interface BYOKSettingsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  initialSettings?: SettingsFormValues;
+  initialSettings?: SettingsFormValues & { lastVisitAt?: string | null };
   onSuccess?: () => void;
 }
 
@@ -59,6 +60,7 @@ export function BYOKSettingsModal({ isOpen, onClose, initialSettings, onSuccess 
       githubToken: '',
       selectedModel: DEFAULT_MODEL,
       trueforgeBaseUrl: 'http://localhost:8790',
+      discordGuildId: '',
     },
   });
 
@@ -71,6 +73,7 @@ export function BYOKSettingsModal({ isOpen, onClose, initialSettings, onSuccess 
         githubToken: initialSettings.githubToken || '',
         selectedModel: initialSettings.selectedModel || DEFAULT_MODEL,
         trueforgeBaseUrl: initialSettings.trueforgeBaseUrl || 'http://localhost:8790',
+        discordGuildId: initialSettings.discordGuildId || '',
       });
     }
   }, [isOpen, initialSettings, reset]);
@@ -90,7 +93,7 @@ export function BYOKSettingsModal({ isOpen, onClose, initialSettings, onSuccess 
             </Modal.Icon>
             <Modal.Heading>BYOK Model & Key Configuration</Modal.Heading>
             <p className="text-sm text-muted mt-1">
-              Configure model routing, API tokens, and TrueForge harness connection.
+              Configure model routing, API tokens, and integrations.
             </p>
           </Modal.Header>
           <Modal.Body>
@@ -145,6 +148,18 @@ export function BYOKSettingsModal({ isOpen, onClose, initialSettings, onSuccess 
                 }
                 placeholder="http://localhost:8790"
                 {...register('trueforgeBaseUrl')}
+              />
+
+              <Input
+                type="text"
+                label={
+                  <span className="flex items-center gap-1.5 text-xs">
+                    <RiDiscordLine className="text-[#5865F2]" /> Discord Server ID
+                  </span>
+                }
+                placeholder="123456789012345678"
+                description="Right-click your Discord server → Copy Server ID (enable Developer Mode in Discord settings first)"
+                {...register('discordGuildId')}
               />
             </form>
           </Modal.Body>

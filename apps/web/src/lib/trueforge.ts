@@ -78,6 +78,31 @@ export class TrueForgeMaintainerService {
    * everything it creates.
    */
 
+  async ensureMcpServersRegistered(): Promise<void> {
+    // Register discord MCP server in TrueForge settings so sessions can reference it.
+    // IMPORTANT: When harness runs in WSL and web runs on Windows, localhost:5173
+    // is NOT reachable from WSL (your curl tests confirmed this). Set PICTO_API_URL
+    // to the Windows host IP: http://172.26.48.1:5173 (your current WSL gateway).
+    // See .env.example. Vite is now bound to 0.0.0.0 so WSL can reach it.
+    try {
+      const baseUrl = process.env.PICTO_API_URL || 'http://localhost:5173';
+      const mcpUrl = `${baseUrl}/api/mcp/discord`;
+
+      await this.client.settings.mcpServers.createOrUpdate({
+        manifest: {
+          name: 'discord' as any,
+          description: 'Discord bot — send and read messages',
+          type: 'remote' as any,
+          url: mcpUrl,
+        },
+      });
+      console.log(`✅ MCP server 'discord' registered at ${mcpUrl}`);
+    } catch (err: any) {
+      // Already exists or harness unreachable — not fatal
+      console.warn('ensureMcpServersRegistered note:', err?.message || err);
+    }
+  }
+
   // ─── Triage Helpers ─────────────────────────────────────────────────────────
 
   /** Parse triage JSON from supervisor response */
@@ -527,10 +552,13 @@ ${triage.assignee ? `- **Assigned To**: @${triage.assignee}` : ''}
               params: { max_tokens: 4096, temperature: 0.1 },
             },
             instructions: 'You are an AI agent. Follow the instructions given to you in each turn.',
+            mcpServers: [
+              { name: 'github' as any },
+              { name: 'discord' as any },
+            ],
             config: {
               sandbox: { enabled: true },
               require_approval_for_tools: ['merge_pull_request'],
-              mcp_servers: ['github', 'discord'],
             },
           } as any,
         },
@@ -643,7 +671,10 @@ Follow these strict maintainer workflow rules:
   }
 
   /**
-   * Create a long-lived Discord bot session with GitHub + Discord MCPs
+   * Create a long-lived Discord bot session with GitHub + optional Discord MCP.
+   * Discord MCP is only included if the server has been registered in TrueForge UI
+   * at http://localhost:5173/api/mcp/discord — otherwise we fall back to github-only
+   * and reply to Discord via direct REST.
    */
   async createDiscordBotSession(repoFullName: string, options: {
     modelName: string;
@@ -658,14 +689,17 @@ Follow these strict maintainer workflow rules:
             params: { max_tokens: 2048, temperature: 0.2 },
           },
           instructions: options.instructions,
+          mcpServers: [
+            { name: 'github' as any },
+            { name: 'discord' as any },
+          ],
           config: {
-            sandbox: { enabled: false }, // Discord bot sessions don't need sandbox
-            mcp_servers: ['github', 'discord'],
+            sandbox: { enabled: false },
           },
         } as any,
       },
     });
-    console.log(`🤖 [Discord Bot] Created TrueForge session: ${session.id}`);
+    console.log(`🤖 [Discord Bot] Created TrueForge session: ${session.id} with MCPs: github,discord`);
     return session;
   }
 
