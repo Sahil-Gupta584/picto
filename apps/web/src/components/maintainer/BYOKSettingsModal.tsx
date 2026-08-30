@@ -1,13 +1,15 @@
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { RiKey2Line, RiCheckLine, RiCloseLine, RiBrainLine, RiGithubFill, RiTerminalBoxLine } from 'react-icons/ri';
+import { RiKey2Line, RiCheckLine, RiBrainLine, RiGithubFill, RiTerminalBoxLine } from 'react-icons/ri';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { orpc } from '#/orpc/client';
 import { useState, useEffect } from 'react';
+import { Modal } from '@heroui/react';
 import { Button } from '#/components/Button';
 import { Input } from '#/components/Input';
 import { Select, SelectItem } from '#/components/Select';
+import { MODELS, DEFAULT_MODEL } from '#/lib/models';
 
 const settingsSchema = z.object({
   geminiApiKey: z.string().optional(),
@@ -26,16 +28,6 @@ interface BYOKSettingsModalProps {
   initialSettings?: SettingsFormValues;
   onSuccess?: () => void;
 }
-
-const AVAILABLE_MODELS = [
-  { id: 'google-gemini/gemini-3.1-flash-lite', name: 'Gemini 3.1 Flash Lite (Recommended & Fastest)' },
-  { id: 'google-gemini/gemini-3-1-pro-preview', name: 'Gemini 3.1 Pro Preview (Deep Reasoning)' },
-  { id: 'google-gemini/gemini-3-6-flash', name: 'Gemini 3.6 Flash' },
-  { id: 'google-gemini/gemini-1.5-flash', name: 'Gemini 1.5 Flash (Generous Free Tier)' },
-  { id: 'google-gemini/gemini-1.5-pro', name: 'Gemini 1.5 Pro' },
-  { id: 'anthropic/claude-sonnet-4-6', name: 'Anthropic Claude Sonnet 4.6' },
-  { id: 'openai/gpt-4o', name: 'OpenAI GPT-4o' },
-];
 
 export function BYOKSettingsModal({ isOpen, onClose, initialSettings, onSuccess }: BYOKSettingsModalProps) {
   const queryClient = useQueryClient();
@@ -58,19 +50,14 @@ export function BYOKSettingsModal({ isOpen, onClose, initialSettings, onSuccess 
     })
   );
 
-  const {
-    register,
-    handleSubmit,
-    control,
-    reset,
-  } = useForm<SettingsFormValues>({
+  const { register, handleSubmit, control, reset } = useForm<SettingsFormValues>({
     resolver: zodResolver(settingsSchema),
     defaultValues: {
       geminiApiKey: '',
       anthropicApiKey: '',
       openaiApiKey: '',
       githubToken: '',
-      selectedModel: 'google-gemini/gemini-3.1-flash-lite',
+      selectedModel: DEFAULT_MODEL,
       trueforgeBaseUrl: 'http://localhost:8790',
     },
   });
@@ -82,141 +69,103 @@ export function BYOKSettingsModal({ isOpen, onClose, initialSettings, onSuccess 
         anthropicApiKey: initialSettings.anthropicApiKey || '',
         openaiApiKey: initialSettings.openaiApiKey || '',
         githubToken: initialSettings.githubToken || '',
-        selectedModel: initialSettings.selectedModel || 'google-gemini/gemini-3.1-flash-lite',
+        selectedModel: initialSettings.selectedModel || DEFAULT_MODEL,
         trueforgeBaseUrl: initialSettings.trueforgeBaseUrl || 'http://localhost:8790',
       });
     }
   }, [isOpen, initialSettings, reset]);
-
-  if (!isOpen) return null;
 
   const onSubmit = (values: SettingsFormValues) => {
     updateSettingsMutation.mutate(values);
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 animate-mock-rise">
-      <div className="w-full max-w-lg border border-white/[0.1] bg-[#15171d] shadow-2xl p-6 flex flex-col max-h-[90vh] rounded-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-white/[0.08] pb-4">
-          <div className="space-y-0.5">
-            <div className="flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#118af3]/15 text-[#118af3] border border-[#118af3]/25">
-                <RiKey2Line className="text-sm" />
-              </span>
-              <h2 className="text-sm font-semibold tracking-tight text-white">
-                BYOK Model & Key Configuration
-              </h2>
-            </div>
-            <p className="text-xs text-neutral-400">
-              Configure model routing, API tokens, and TrueForge local harness connections.
+    <Modal.Backdrop isOpen={isOpen} onOpenChange={(open) => { if (!open) onClose(); }} variant="blur">
+      <Modal.Container size="md">
+        <Modal.Dialog className="bg-background border">
+          <Modal.CloseTrigger />
+          <Modal.Header>
+            <Modal.Icon className="bg-accent-soft text-accent-soft-foreground">
+              <RiKey2Line className="size-5" />
+            </Modal.Icon>
+            <Modal.Heading>BYOK Model & Key Configuration</Modal.Heading>
+            <p className="text-sm text-muted mt-1">
+              Configure model routing, API tokens, and TrueForge harness connection.
             </p>
-          </div>
+          </Modal.Header>
+          <Modal.Body>
+            <form id="byok-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+              <Controller
+                name="selectedModel"
+                control={control}
+                render={({ field }) => (
+                  <Select
+                    label="Active LLM Model"
+                    placeholder="Choose model..."
+                    value={field.value}
+                    onChange={(e: any) => field.onChange(e?.target?.value || e)}
+                  >
+                    {MODELS.map((m) => (
+                      <SelectItem key={m.key} value={m.key}>
+                        {m.label}
+                      </SelectItem>
+                    ))}
+                  </Select>
+                )}
+              />
 
-          <button
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-neutral-400 hover:text-white hover:bg-white/[0.06] transition"
-            onClick={onClose}
-          >
-            <RiCloseLine className="text-lg" />
-          </button>
-        </div>
+              <Input
+                type="password"
+                label={
+                  <span className="flex items-center gap-1.5 text-xs">
+                    <RiBrainLine className="text-accent" /> Google Gemini API Key
+                  </span>
+                }
+                placeholder="AIzaSy..."
+                {...register('geminiApiKey')}
+              />
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 flex-1 overflow-y-auto pt-4 pr-1">
-          {/* Active Model Selector */}
-          <div>
-            <Controller
-              name="selectedModel"
-              control={control}
-              render={({ field }) => (
-                <Select
-                  label="Active LLM Model"
-                  placeholder="Choose model..."
-                  value={field.value}
-                  onChange={(e: any) => field.onChange(e?.target?.value || e)}
-                >
-                  {AVAILABLE_MODELS.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.name}
-                    </SelectItem>
-                  ))}
-                </Select>
-              )}
-            />
-          </div>
+              <Input
+                type="password"
+                label={
+                  <span className="flex items-center gap-1.5 text-xs">
+                    <RiGithubFill /> GitHub Personal Access Token
+                  </span>
+                }
+                placeholder="ghp_..."
+                {...register('githubToken')}
+              />
 
-          {/* Gemini API Key */}
-          <div className="space-y-1">
-            <Input
-              type="password"
-              label={
-                <span className="flex items-center gap-1.5 text-xs text-neutral-400">
-                  <RiBrainLine className="text-[#118af3]" /> Google Gemini API Key
-                </span>
-              }
-              placeholder="AIzaSy..."
-              {...register('geminiApiKey')}
-            />
-          </div>
-
-          {/* GitHub Token */}
-          <div className="space-y-1">
-            <Input
-              type="password"
-              label={
-                <span className="flex items-center gap-1.5 text-xs text-neutral-400">
-                  <RiGithubFill className="text-white" /> GitHub Personal Access Token (PAT)
-                </span>
-              }
-              placeholder="ghp_..."
-              {...register('githubToken')}
-            />
-          </div>
-
-          {/* TrueForge Base URL */}
-          <div className="space-y-1">
-            <Input
-              type="text"
-              label={
-                <span className="flex items-center gap-1.5 text-xs text-neutral-400">
-                  <RiTerminalBoxLine className="text-emerald-400" /> TrueForge Harness Server Base URL
-                </span>
-              }
-              placeholder="http://localhost:8790"
-              {...register('trueforgeBaseUrl')}
-            />
-          </div>
-
-          {/* Footer Actions */}
-          <div className="flex items-center justify-between pt-4 border-t border-white/[0.08]">
-            {saveSuccessMsg ? (
-              <span className="font-mono text-xs text-emerald-400 flex items-center gap-1.5 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/25">
-                <RiCheckLine /> Settings Saved!
+              <Input
+                type="text"
+                label={
+                  <span className="flex items-center gap-1.5 text-xs">
+                    <RiTerminalBoxLine className="text-success" /> TrueForge Harness URL
+                  </span>
+                }
+                placeholder="http://localhost:8790"
+                {...register('trueforgeBaseUrl')}
+              />
+            </form>
+          </Modal.Body>
+          <Modal.Footer>
+            {saveSuccessMsg && (
+              <span className="text-xs text-success flex items-center gap-1 mr-auto">
+                <RiCheckLine /> Saved!
               </span>
-            ) : (
-              <span />
             )}
-
-            <div className="flex gap-2">
-              <Button
-                variant="secondary"
-                className="tembo-btn-secondary h-8 px-4 text-xs"
-                onClick={onClose}
-              >
-                Cancel
-              </Button>
-
-              <Button
-                type="submit"
-                isLoading={updateSettingsMutation.isPending}
-                className="tembo-btn-primary h-8 px-4 text-xs font-bold shadow-md"
-              >
-                Save Settings
-              </Button>
-            </div>
-          </div>
-        </form>
-      </div>
-    </div>
+            <Button variant="secondary" onPress={onClose}>Cancel</Button>
+            <Button
+              type="submit"
+              form="byok-form"
+              isLoading={updateSettingsMutation.isPending}
+              variant='secondary'
+            >
+              Save Settings
+            </Button>
+          </Modal.Footer>
+        </Modal.Dialog>
+      </Modal.Container>
+    </Modal.Backdrop>
   );
 }

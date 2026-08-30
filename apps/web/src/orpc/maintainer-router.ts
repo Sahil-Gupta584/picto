@@ -101,8 +101,15 @@ export const getRepos = authed.handler(async ({ context }) => {
 
 export const getIssues = authed.handler(async ({ context }) => {
   try {
+    const settings = await getUserSettings(context.user.id)
+    const lastVisitAt = settings.lastVisitAt
+
     const workflows = await prisma.maintainerWorkflow.findMany({
-      where: { state: 'open', repo: { userId: context.user.id } },
+      where: {
+        state: 'open',
+        repo: { userId: context.user.id },
+        ...(lastVisitAt ? { createdAt: { gt: lastVisitAt } } : {}),
+      },
       orderBy: { createdAt: 'desc' },
       include: { repo: true },
     })
@@ -138,10 +145,14 @@ export const getIssues = authed.handler(async ({ context }) => {
 
 export const getPRReviews = authed.handler(async ({ context }) => {
   try {
+    const settings = await getUserSettings(context.user.id)
+    const lastVisitAt = settings.lastVisitAt
+
     const workflows = await prisma.maintainerWorkflow.findMany({
       where: {
         prNumber: { not: null },
         repo: { userId: context.user.id },
+        ...(lastVisitAt ? { createdAt: { gt: lastVisitAt } } : {}),
       },
       orderBy: { createdAt: 'desc' },
       include: { repo: true },
@@ -411,9 +422,18 @@ export const getSettings = authed.handler(async ({ context }) => {
     anthropicApiKey: settings.anthropicApiKey || '',
     openaiApiKey: settings.openaiApiKey || '',
     githubToken: settings.githubToken || '',
-      selectedModel: resolveModelKey(settings.selectedModel),
+    selectedModel: resolveModelKey(settings.selectedModel),
     trueforgeBaseUrl: settings.trueforgeBaseUrl || 'http://localhost:8790',
+    lastVisitAt: settings.lastVisitAt?.toISOString() ?? null,
   }
+})
+
+export const markVisited = authed.handler(async ({ context }) => {
+  await prisma.maintainerSettings.update({
+    where: { userId: context.user.id },
+    data: { lastVisitAt: new Date() },
+  })
+  return { ok: true }
 })
 
 export const updateSettings = authed
@@ -702,6 +722,7 @@ export const maintainerRouter = {
   toggleRepoStatus,
   getSettings,
   updateSettings,
+  markVisited,
   startWorkflow,
   approvePrCreation,
   approvePR,

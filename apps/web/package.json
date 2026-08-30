@@ -21,6 +21,8 @@
     "trueforge": "bash start-trueforge.sh"
   },
   "dependencies": {
+    "@git-diff-view/react": "0.1.7",
+    "@git-diff-view/utils": "0.0.23",
     "@heroui/react": "^3.0.0-beta.5",
     "@heroui/styles": "^3.0.0-beta.5",
     "@hookform/resolvers": "5.4.0",

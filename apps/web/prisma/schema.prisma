@@ -111,6 +111,7 @@ model MaintainerSettings {
   githubToken      String?
   selectedModel    String   @default("google-gemini/gemini-3-5-flash-lite")
   trueforgeBaseUrl String   @default("http://localhost:8790")
+  lastVisitAt      DateTime?
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 

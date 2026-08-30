@@ -23,6 +23,8 @@
   --default: #0d1117;
   --default-foreground: #ffffff;
   --field-background: #0d1117;
+  --button-bg: #212830;
+  --button-fg: #ffffff;
   --field-border: rgba(61, 68, 77, 0.7);
   --field-foreground: #ffffff;
   --field-placeholder: #9198a1;
@@ -45,7 +47,7 @@
   --surface-tertiary-foreground: #ffffff;
   --warning: #d29922;
   --warning-foreground: #000000;
-  --accent-soft-foreground: #8dd6ff;
+  --accent-soft-foreground: #5c6164;
 
   --radius: 3px;
   --field-radius: 8px;
@@ -93,4 +95,9 @@ html, body {
             }
         }
     }
+}
+
+.button--secondary{
+  background-color: #212830;
+  color: #ffffff;
 }

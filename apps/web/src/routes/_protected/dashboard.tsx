@@ -1,8 +1,10 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { DiffView, DiffModeEnum } from '@git-diff-view/react';
+import '@git-diff-view/react/styles/diff-view.css';
 import { orpc } from '#/orpc/client';
 import { BYOKSettingsModal } from '#/components/maintainer/BYOKSettingsModal';
 import { RunWorkflowModal } from '#/components/maintainer/RunWorkflowModal';
@@ -100,6 +102,28 @@ function PRIcon({ status, size = 16 }: { status?: string; size?: number }) {
   return <GoGitPullRequest size={size} className="text-[#3fb950] shrink-0" />;
 }
 
+function DiffViewer({ diff }: { diff: string }) {
+  const hunks = useMemo(() => {
+    if (!diff) return [];
+    // Split unified diff into per-file hunk strings
+    return diff.split(/(?=^diff --git)/m).filter(Boolean);
+  }, [diff]);
+
+  if (!hunks.length) return <div className="text-xs text-muted p-4">No diff available</div>;
+
+  return (
+    <div className="overflow-auto max-h-[500px] text-xs">
+      <DiffView
+        data={{ hunks }}
+        diffViewMode={DiffModeEnum.Unified}
+        diffViewTheme="dark"
+        diffViewHighlight={false}
+        diffViewFontSize={12}
+      />
+    </div>
+  );
+}
+
 type DrawerData = { kind: 'issue' | 'pr' | 'comment' | 'event'; id: string | number; prNumber?: number } | null;
 
 function DashboardComponent() {
@@ -123,6 +147,20 @@ function DashboardComponent() {
   const { data: events = [] } = useQuery(orpc.maintainer.getSinceLastVisit.queryOptions());
   const { data: settings = {} } = useQuery(orpc.maintainer.getSettings.queryOptions());
   const { data: attentionItems = [] } = useQuery(orpc.maintainer.getNeedsAttention.queryOptions());
+
+  // Mark visited only if last visit was more than 2 hours ago (or never)
+  const markVisitedMutation = useMutation(orpc.maintainer.markVisited.mutationOptions({
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: orpc.maintainer.getSettings.key() });
+    },
+  }));
+  useEffect(() => {
+    const lastVisitAt = (settings as any).lastVisitAt;
+    const twoHoursAgo = Date.now() - 2 * 60 * 60 * 1000;
+    if (!lastVisitAt || new Date(lastVisitAt).getTime() < twoHoursAgo) {
+      markVisitedMutation.mutate(undefined as any);
+    }
+  }, [(settings as any).lastVisitAt]);
 
   const approvePRMutation = useMutation(
     orpc.maintainer.approvePR.mutationOptions({
@@ -196,7 +234,7 @@ function DashboardComponent() {
                 <span className="flex items-center gap-2">
                   <RiTimeLine className="shrink-0" />
                   <span>Logs</span>
-                  <Chip size="sm" variant="secondary" className="shrink-0">{(events as any[]).length}</Chip>
+                  <Chip size="sm" variant="secondary" className="shrink-0">{(filteredIssues as any[]).length + (filteredPRs as any[]).length}</Chip>
                 </span>
               </Tabs.Tab>
             </Tabs.List>
@@ -270,12 +308,12 @@ function DashboardComponent() {
                     <Accordion.Body>
                       <div className="space-y-1">
                         {(filteredIssues as any[]).length === 0 ? (
-                          <div className="text-xs text-center py-6 text-muted">No issues</div>
+                          <div className="text-xs text-center py-6 text-muted">No new issues</div>
                         ) : (filteredIssues as any[]).slice(0, 10).map((iss: any) => (
                           <Card key={iss.id} variant="secondary" onClick={() => setDrawer({ kind: 'issue', id: iss.id })} style={{ backgroundColor: '#151b23' }} className="cursor-pointer hover:brightness-125 transition-all">
                             <Card.Content>
                               <div className="flex items-start gap-2">
-                                <IssueIcon status={iss.status} size={16} className="mt-0.5 shrink-0" />
+                                <div className="mt-0.5 shrink-0"><IssueIcon status={iss.status} size={16} /></div>
                                 <div className="min-w-0 flex-1">
                                   <div className="text-xs font-medium truncate">{iss.title}</div>
                                   <div className="flex items-center gap-2 mt-0.5">
@@ -309,12 +347,12 @@ function DashboardComponent() {
                     <Accordion.Body>
                       <div className="space-y-1">
                         {(filteredPRs as any[]).length === 0 ? (
-                          <div className="text-xs text-center py-6 text-muted">No PRs</div>
+                          <div className="text-xs text-center py-6 text-muted">No new PRs</div>
                         ) : (filteredPRs as any[]).slice(0, 10).map((pr: any) => (
                           <Card key={pr.id} variant="secondary" onClick={() => setDrawer({ kind: 'pr', id: pr.id })} style={{ backgroundColor: '#151b23' }} className="cursor-pointer hover:brightness-125 transition-all">
                             <Card.Content>
                               <div className="flex items-start gap-2">
-                                <PRIcon status={pr.status} size={16} className="mt-0.5 shrink-0" />
+                                <div className="mt-0.5 shrink-0"><PRIcon status={pr.status} size={16} /></div>
                                 <div className="min-w-0 flex-1">
                                   <div className="text-xs font-medium truncate">{pr.title}</div>
                                   <div className="flex items-center gap-2 mt-0.5">
@@ -403,7 +441,7 @@ function DashboardComponent() {
                         const s = selectedIssue.status?.toLowerCase() ?? '';
                         const isClosed = s === 'closed' || s === 'rejected' || s === 'merged';
                         return (
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${isClosed ? 'bg-[#8957e5]/20 text-[#c084fc]' : 'bg-[#238636]/20 text-[#3fb950]'}`}>
+                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${isClosed ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success'}`}>
                             <IssueIcon status={selectedIssue.status} size={14} />
                             {isClosed ? 'Closed' : 'Open'}
                           </span>
@@ -413,14 +451,14 @@ function DashboardComponent() {
 
                     {/* Author row */}
                     {selectedIssue.author && (
-                      <div className="flex items-center justify-between px-3 py-2 -mb-px rounded-t-lg" style={{ background: '#388bfd1a', border: '1px solid #388bfd26' }}>
+                      <div className="flex items-center justify-between px-3 py-2 -mb-px rounded-t-lg bg-accent/5 border border-accent/15">
                         <GitHubUser login={selectedIssue.author} />
-                        <span className="text-[10px] border rounded-full px-2 py-0.5 text-muted" style={{ borderColor: '#388bfd26' }}>Owner</span>
+                        <span className="text-[10px] border border-accent/15 rounded-full px-2 py-0.5 text-muted">Owner</span>
                       </div>
                     )}
 
                     {/* Body */}
-                    <div className="rounded-b-lg rounded-tr-lg p-4" style={{ border: '1px solid #388bfd26', borderTop: selectedIssue.author ? 'none' : '1px solid #388bfd26' }}>
+                    <div className="rounded-b-lg rounded-tr-lg p-4 border border-accent/15" style={{ borderTop: selectedIssue.author ? 'none' : undefined }}>
                       <MarkdownBody>{selectedIssue.body}</MarkdownBody>
                     </div>
 
@@ -452,7 +490,7 @@ function DashboardComponent() {
                         const isMerged = s === 'merged';
                         const isClosed = s === 'closed' || s === 'rejected';
                         return (
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${isMerged ? 'bg-[#8957e5]/20 text-[#c084fc]' : isClosed ? 'bg-[#f85149]/20 text-[#f85149]' : 'bg-[#238636]/20 text-[#3fb950]'}`}>
+                           <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${isMerged ? 'bg-accent/10 text-accent' : isClosed ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success'}`}>
                             <PRIcon status={selectedPR.status} size={14} />
                             {isMerged ? 'Merged' : isClosed ? 'Closed' : 'Open'}
                           </span>
@@ -462,15 +500,15 @@ function DashboardComponent() {
 
                     {/* Author row */}
                     {selectedPR.author && (
-                      <div className="flex items-center justify-between px-3 py-2 -mb-px rounded-t-lg" style={{ background: '#388bfd1a', border: '1px solid #388bfd26' }}>
+                      <div className="flex items-center justify-between px-3 py-2 -mb-px rounded-t-lg bg-accent/5 border border-accent/15">
                         <GitHubUser login={selectedPR.author} />
-                        <span className="text-[10px] border rounded-full px-2 py-0.5 text-muted" style={{ borderColor: '#388bfd26' }}>Owner</span>
+                        <span className="text-[10px] border border-accent/15 rounded-full px-2 py-0.5 text-muted">Owner</span>
                       </div>
                     )}
 
                     {/* Body */}
                     {selectedPR.summary && (
-                      <div className="p-4" style={{ border: '1px solid #388bfd26', borderTop: selectedPR.author ? 'none' : '1px solid #388bfd26', borderRadius: selectedPR.author ? '0 0 8px 8px' : '8px' }}>
+                      <div className={`p-4 border border-accent/15 ${selectedPR.author ? 'rounded-b-lg rounded-tr-lg' : 'rounded-lg'}`} style={{ borderTop: selectedPR.author ? 'none' : undefined }}>
                         <MarkdownBody>{selectedPR.summary}</MarkdownBody>
                       </div>
                     )}
@@ -478,12 +516,13 @@ function DashboardComponent() {
                     <Card>
                       <Card.Header>
                         <span className="flex items-center gap-1.5 text-xs"><RiCodeSSlashLine /> Diff</span>
-                        {liveDiff && <span className="text-xs text-muted">{(liveDiff as any).files?.length} files</span>}
+                        {liveDiff && <span className="text-xs text-muted">{String((liveDiff as any).files?.length ?? '')} files</span>}
                       </Card.Header>
-                      <Card.Content>
-                        <div className="text-xs whitespace-pre-wrap font-mono max-h-[400px] overflow-auto">
-                          {liveDiff ? (liveDiff as any).diff?.slice(0, 8000) || 'No diff' : '// diff not yet generated'}
-                        </div>
+                      <Card.Content className="p-0">
+                        {liveDiff
+                          ? <DiffViewer diff={(liveDiff as any).diff || ''} />
+                          : <div className="text-xs text-muted p-4">Loading diff…</div>
+                        }
                       </Card.Content>
                     </Card>
                     {selectedPR.testResults && (
@@ -518,10 +557,11 @@ function DashboardComponent() {
                     {selectedComment.prNumber && (
                       <Card>
                         <Card.Header><span className="flex items-center gap-1.5 text-xs"><RiCodeSSlashLine /> Diff</span></Card.Header>
-                        <Card.Content>
-                          <div className="text-xs whitespace-pre-wrap font-mono max-h-[400px] overflow-auto">
-                            {liveDiff ? (liveDiff as any).diff?.slice(0, 8000) || 'No diff' : 'Loading diff…'}
-                          </div>
+                        <Card.Content className="p-0">
+                          {liveDiff
+                            ? <DiffViewer diff={(liveDiff as any).diff || ''} />
+                            : <div className="text-xs text-muted p-4">Loading diff…</div>
+                          }
                         </Card.Content>
                       </Card>
                     )}
