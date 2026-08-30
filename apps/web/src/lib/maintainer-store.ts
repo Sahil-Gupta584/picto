@@ -99,7 +99,7 @@ class MaintainerStore {
     trueforgeBaseUrl: process.env.TRUEFORGE_BASE_URL || 'http://localhost:8790',
   };
 
-  private repos: RepositoryConfig[] = [
+  private repos: RepositoryConfig[] = process.env.NODE_ENV === 'production' ? [] : [
     {
       id: 'repo-1',
       owner: 'octocat',
@@ -113,7 +113,7 @@ class MaintainerStore {
     },
   ];
 
-  private issues: IssueItem[] = [
+  private issues: IssueItem[] = process.env.NODE_ENV === 'production' ? [] : [
     {
       id: 'iss-1',
       githubId: 101,
@@ -183,7 +183,7 @@ class MaintainerStore {
     },
   ];
 
-  private prs: PRItem[] = [
+  private prs: PRItem[] = process.env.NODE_ENV === 'production' ? [] : [
     {
       id: 'pr-1',
       number: 42,
@@ -229,7 +229,7 @@ class MaintainerStore {
     },
   ];
 
-  private logs: ActionLog[] = [
+  private logs: ActionLog[] = process.env.NODE_ENV === 'production' ? [] : [
     {
       id: 'l-1',
       type: 'issue_triaged',
