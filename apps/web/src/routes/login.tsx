@@ -46,12 +46,12 @@ function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#0d0e12] p-4 text-[#ffffff] font-sans antialiased">
-      <div className="w-full max-w-sm border border-white/[0.1] bg-[#15171d] p-6 shadow-2xl rounded-2xl">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--background)] p-4 text-[var(--foreground)] font-sans antialiased">
+      <div className="w-full max-w-sm border border-[var(--border)] bg-[var(--surface)] p-6 shadow-2xl rounded-2xl">
         <div className="flex flex-col items-start gap-1 pb-4">
           <Link
             to="/dashboard"
-            className="mb-2 flex items-center gap-1 text-xs text-neutral-400 hover:text-white transition"
+            className="mb-2 flex items-center gap-1 text-xs text-[var(--muted)] hover:text-[var(--foreground)] transition"
           >
             <RiArrowLeftLine /> Back to dashboard
           </Link>
@@ -61,19 +61,19 @@ function LoginPage() {
               <SiDuckduckgo className="text-base" />
             </span>
             <div className="flex items-center gap-1.5">
-              <span className="text-base font-bold tracking-tight text-white">
+              <span className="text-base font-bold tracking-tight text-[var(--foreground)]">
                 Picto
               </span>
-              <span className="text-[10px] font-mono text-neutral-400 bg-white/[0.05] border border-white/[0.08] px-1.5 py-0.2 rounded">
+              <span className="text-[10px] font-mono text-[var(--muted)] bg-[var(--surface-secondary)] border border-[var(--border)] px-1.5 py-0.5 rounded">
                 auth
               </span>
             </div>
           </div>
 
-          <h2 className="mt-3 text-sm font-semibold tracking-tight text-white">
+          <h2 className="mt-3 text-sm font-semibold tracking-tight text-[var(--foreground)]">
             Sign in to Workspace
           </h2>
-          <p className="text-xs text-neutral-400">
+          <p className="text-xs text-[var(--muted)]">
             Supervise repositories with autonomous AI maintainers.
           </p>
         </div>
@@ -81,13 +81,13 @@ function LoginPage() {
         <div className="space-y-4 pt-1">
           <Button
             type="button"
-            className="tembo-btn-secondary w-full justify-center h-9 text-xs font-medium"
+            className="w-full justify-center h-9 text-xs font-medium"
             variant="secondary"
             isLoading={isGoogleLoading}
             onClick={handleGoogle}
             startContent={
               !isGoogleLoading && (
-                <RiGoogleFill className="text-sm text-rose-400" />
+                <RiGoogleFill className="text-sm text-[var(--danger)]" />
               )
             }
           >
@@ -97,23 +97,23 @@ function LoginPage() {
           </Button>
 
           <div className="flex items-center gap-3 my-1">
-            <Separator className="flex-1 bg-white/[0.08]" />
-            <span className="text-[10px] font-mono uppercase tracking-wider text-neutral-500">
+            <Separator className="flex-1 bg-[var(--border)]" />
+            <span className="text-[10px] font-mono uppercase tracking-wider text-[var(--muted)]">
               or email
             </span>
-            <Separator className="flex-1 bg-white/[0.08]" />
+            <Separator className="flex-1 bg-[var(--border)]" />
           </div>
 
           {magicSent ? (
-            <div className="rounded-xl bg-[#0f1015] p-4 text-center text-xs text-emerald-400 border border-emerald-500/25 space-y-1.5 animate-mock-rise">
+            <div className="rounded-xl bg-[var(--surface-secondary)] p-4 text-center text-xs text-[var(--success)] border border-[var(--border)] space-y-1.5">
               <div className="flex justify-center">
-                <span className="h-8 w-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-base">
+                <span className="h-8 w-8 rounded-full bg-[var(--surface-tertiary)] flex items-center justify-center text-base">
                   <RiMailSendLine />
                 </span>
               </div>
-              <p className="font-semibold text-xs text-white">Check your inbox</p>
-              <p className="text-[11px] text-neutral-400">
-                We sent a login link to <strong className="text-emerald-400 font-mono">{email}</strong>.
+              <p className="font-semibold text-xs text-[var(--foreground)]">Check your inbox</p>
+              <p className="text-[11px] text-[var(--muted)]">
+                We sent a login link to <strong className="text-[var(--accent)] font-mono">{email}</strong>.
               </p>
             </div>
           ) : (
@@ -129,7 +129,7 @@ function LoginPage() {
 
               <Button
                 type="submit"
-                className="tembo-btn-primary w-full justify-center h-9 text-xs shadow-md"
+                className="w-full justify-center h-9 text-xs shadow-md"
                 isLoading={isMagicLoading}
               >
                 Send Magic Sign-in Link
