@@ -128,7 +128,7 @@ type DrawerData = { kind: 'issue' | 'pr' | 'comment' | 'event'; id: string | num
 
 function DashboardComponent() {
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<'attention' | 'logs'>('attention');
+  const [activeTab, setActiveTab] = useState<'attention' | 'logs'>('logs');
   const [showSettings, setShowSettings] = useState(false);
   const [showNewWorkflowModal, setShowNewWorkflowModal] = useState(false);
   const [showAddRepoModal, setShowAddRepoModal] = useState(false);
@@ -230,6 +230,13 @@ function DashboardComponent() {
         <Tabs selectedKey={activeTab} onSelectionChange={(k: any) => setActiveTab(k as any)} className="w-full">
           <Tabs.ListContainer className="w-fit">
             <Tabs.List aria-label="Dashboard tabs">
+              <Tabs.Tab id="logs" className="whitespace-nowrap">
+                <span className="flex items-center gap-2">
+                  <RiTimeLine className="shrink-0" />
+                  <span>Logs</span>
+                  <Chip size="sm" variant="secondary" className="shrink-0">{(filteredIssues as any[]).length + (filteredPRs as any[]).length}</Chip>
+                </span>
+              </Tabs.Tab>
               <Tabs.Tab id="attention" className="whitespace-nowrap">
                 <span className="flex items-center gap-2">
                   <RiAlertLine className="shrink-0" />
@@ -237,13 +244,6 @@ function DashboardComponent() {
                   {(filteredAttention as any[]).length > 0 && (
                     <Chip size="sm" className="shrink-0">{(filteredAttention as any[]).length}</Chip>
                   )}
-                </span>
-              </Tabs.Tab>
-              <Tabs.Tab id="logs" className="whitespace-nowrap">
-                <span className="flex items-center gap-2">
-                  <RiTimeLine className="shrink-0" />
-                  <span>Logs</span>
-                  <Chip size="sm" variant="secondary" className="shrink-0">{(filteredIssues as any[]).length + (filteredPRs as any[]).length}</Chip>
                 </span>
               </Tabs.Tab>
             </Tabs.List>
