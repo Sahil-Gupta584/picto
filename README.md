@@ -117,7 +117,27 @@ Full stack (Postgres + Redis) when you need multi-replica: `cd apps/web && docke
 
 **What Qodo surfaced & what we did:** Qodo flagged missing helper abstraction (`isDaytonaPermissionError` vs inline `instanceof` check), stale docstring on `isDaytonaAuthError`, missing OpenAPI `403` schema in `sandboxProviderRoutes.ts`, and missing test coverage — we extracted the helper, updated the route spec, rewrote the error message to name required grants, and added the `403` test + changeset.
 
-**PR history:** Branch → PR → Qodo review → fix → re-review → human merge. Check the PR’s *Checks* and *Conversation* tabs for the Qodo bot threads and the follow-up review on the final commit.
+**PR history:** Branch → PR → Qodo review → fix → re-review → human merge. Check the PR's *Checks* and *Conversation* tabs for the Qodo bot threads and the follow-up review on the final commit.
+
+---
+
+### Critical Security Bug Caught by Qodo on [PR #7](https://github.com/Sahil-Gupta584/picto/pull/7)
+
+Qodo flagged a **High** security vulnerability in [discussion #r3889069112](https://github.com/Sahil-Gupta584/picto/pull/7#discussion_r3889069112):
+
+> **Webhook uses arbitrary user settings** — After repositories became user-owned, issue and PR webhook handlers still loaded credentials with `maintainerSettings.findFirst()` rather than `configuredRepo.userId`. A webhook event for any connected repo would consequently run GitHub API calls and TrueForge agent sessions using a *different* user's token and model settings.
+
+**Fix applied:** Changed both `issues` and `issue_comment` webhook branches to scope the settings lookup by the repo owner:
+```ts
+// Before (arbitrary user's token)
+const userSettings = await prisma.maintainerSettings.findFirst()
+
+// After (token belongs to the repo's owner)
+const userSettings = await prisma.maintainerSettings.findUnique({
+  where: { userId: configuredRepo.userId }
+})
+```
+This ensures every agent session, GitHub label/comment operation, and model selection uses exclusively the credentials of the user who connected that repository — no cross-user token leakage possible.
 
 Setup: one teammate with admin → Qodo → Integrations → SaaS → GitHub → Add installation → authorize repo → comment `/agentic_review` if needed. 14-day trial, no card.
 
