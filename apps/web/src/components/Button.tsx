@@ -9,7 +9,7 @@ export type CustomButtonProps = ButtonProps & {
 }
 
 export function Button({
-  variant = 'secondary',
+  variant = 'ghost',
   color,
   isLoading,
   startContent,
@@ -25,10 +25,10 @@ export function Button({
   }
 
   return (
-    <HeroButton variant={finalVariant} isPending={isLoading} {...props}>
-      {startContent}
-      {children}
-      {endContent}
+    <HeroButton variant={finalVariant} isPending={isLoading} {...(props as any)}>
+      {startContent as any}
+      {children as any}
+      {endContent as any}
     </HeroButton>
   )
 }

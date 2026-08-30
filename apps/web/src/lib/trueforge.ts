@@ -2,6 +2,7 @@ import { TrueForge } from '@truefoundry/trueforge-sdk';
 import { prisma } from '#/db';
 import { githubService, buildConventionalTitle } from '#/lib/github';
 import { buildSupervisorPrompt, buildDeveloperPrompt, buildSetupPrompt } from '#/lib/prompts';
+import { resolveModelKey } from '#/lib/models';
 import { execSync } from 'child_process';
 import os from 'os';
 
@@ -64,18 +65,7 @@ export class TrueForgeMaintainerService {
   }
 
   normalizeModelName(raw?: string): string {
-    if (!raw) return 'google-gemini/gemini-3-1-flash-lite';
-    const lower = raw.toLowerCase();
-    if (lower.includes('lite') || lower.includes('3.1-flash') || lower.includes('3-1-flash')) {
-      return 'google-gemini/gemini-3-1-flash-lite';
-    }
-    if (lower.includes('3.6') || lower.includes('3-6') || lower.includes('flash')) {
-      return 'google-gemini/gemini-3-6-flash';
-    }
-    if (lower.includes('pro') || lower.includes('preview') || lower.includes('3.1')) {
-      return 'google-gemini/gemini-3-1-pro-preview';
-    }
-    return 'google-gemini/gemini-3-1-flash-lite';
+    return resolveModelKey(raw);
   }
 
   /**
@@ -469,8 +459,13 @@ ${triage.assignee ? `- **Assigned To**: @${triage.assignee}` : ''}
     await githubService.addIssueComment(owner, repoName, params.issueNumber, triageCommentBody, params.githubToken);
 
     // 4. Create or update workflow record in PostgreSQL database
+    const repoRecord = await prisma.maintainerRepo.findFirst({
+      where: { fullName: { equals: params.repoFullName, mode: 'insensitive' } },
+    });
+    if (!repoRecord) throw new Error(`Repo ${params.repoFullName} not found in DB`);
+
     let workflow = await prisma.maintainerWorkflow.findFirst({
-      where: { issueNumber: params.issueNumber, repoFullName: params.repoFullName },
+      where: { issueNumber: params.issueNumber, repoId: repoRecord.id },
     });
 
     if (workflow) {
@@ -494,9 +489,9 @@ ${triage.assignee ? `- **Assigned To**: @${triage.assignee}` : ''}
     } else {
       workflow = await prisma.maintainerWorkflow.create({
         data: {
+          repoId: repoRecord.id,
           issueUrl: params.issueUrl,
           issueNumber: params.issueNumber,
-          repoFullName: params.repoFullName,
           title: params.title,
           body: params.body || '',
           status: 'investigating',
@@ -751,6 +746,8 @@ Step 5: Request maintainer approval before final merge!`;
               const errorMsg = s?.message || s?.error?.message || JSON.stringify(s?.error || '') || String(s?.message || '');
               const isRateLimit =
                 errorMsg.includes('429') ||
+                errorMsg.includes('503') ||
+                errorMsg.includes('high demand') ||
                 errorMsg.includes('Quota exceeded') ||
                 errorMsg.includes('rate-limits') ||
                 errorMsg.includes('limit: 15') ||
@@ -758,9 +755,9 @@ Step 5: Request maintainer approval before final merge!`;
               if (isRateLimit && attempt < maxResumeAttempts) {
                 attempt++;
                 const match = errorMsg.match(/retry in\s+([\d.]+)\s*s/i);
-                const waitSeconds = match ? Math.ceil(parseFloat(match[1])) + 2 : 16;
+                const waitSeconds = match ? Math.ceil(parseFloat(match[1])) + 2 : 60;
                 console.warn(
-                  `⏳ [Rate Limit] 429 hit (turn error). Waiting ${waitSeconds}s before prompting "continue" (Attempt ${attempt}/${maxResumeAttempts})...`
+                  `⏳ [Rate Limit] ${errorMsg.includes('503') ? '503' : '429'} hit (turn error). Waiting ${waitSeconds}s before prompting "continue" (Attempt ${attempt}/${maxResumeAttempts})...`
                 );
                 await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
                 currentPrompt = 'continue';
@@ -782,6 +779,8 @@ Step 5: Request maintainer approval before final merge!`;
         const errorMsg = err?.message || String(err);
         const isRateLimit =
           errorMsg.includes('429') ||
+          errorMsg.includes('503') ||
+          errorMsg.includes('high demand') ||
           errorMsg.includes('Quota exceeded') ||
           errorMsg.includes('rate-limits') ||
           errorMsg.includes('limit: 15') ||
@@ -790,10 +789,10 @@ Step 5: Request maintainer approval before final merge!`;
         if (isRateLimit && attempt < maxResumeAttempts) {
           attempt++;
           const match = errorMsg.match(/retry in\s+([\d.]+)\s*s/i);
-          const waitSeconds = match ? Math.ceil(parseFloat(match[1])) + 2 : 16;
+          const waitSeconds = match ? Math.ceil(parseFloat(match[1])) + 2 : 60;
 
           console.warn(
-            `⏳ [Rate Limit] 429 hit. Waiting ${waitSeconds}s before prompting "continue" (Attempt ${attempt}/${maxResumeAttempts})...`
+            `⏳ [Rate Limit] ${errorMsg.includes('503') ? '503' : '429'} hit. Waiting ${waitSeconds}s before prompting "continue" (Attempt ${attempt}/${maxResumeAttempts})...`
           );
           await new Promise((resolve) => setTimeout(resolve, waitSeconds * 1000));
           currentPrompt = 'continue';
@@ -916,13 +915,13 @@ git diff "$UP..HEAD"`
           console.warn(`⚠️ [AI Orchestrator] ${publishNote}`);
         } else {
           try {
-            const [owner, repoName] = workflow.repoFullName.split('/');
+            const [owner, repoName] = params.repoFullName.split('/');
             const userSettings = await prisma.maintainerSettings.findFirst();
             const token = userSettings?.githubToken || undefined;
 
             const published = await this.publishSandboxBranch({
               sessionId,
-              repoFullName: workflow.repoFullName,
+              repoFullName: params.repoFullName,
               token,
               issueNumber: workflow.issueNumber,
             });

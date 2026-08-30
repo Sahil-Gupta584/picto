@@ -126,7 +126,7 @@ export class GitHubService {
           content_type: 'json',
           insecure_ssl: '0',
         },
-        events: ['issues'],
+        events: ['issues', 'issue_comment', 'pull_request', 'pull_request_review_comment'],
         active: true,
       });
 

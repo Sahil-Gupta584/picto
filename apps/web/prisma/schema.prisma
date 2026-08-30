@@ -9,6 +9,8 @@ datasource db {
 
 model MaintainerRepo {
   id              String   @id @default(cuid())
+  userId          String
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   owner           String
   name            String
   fullName        String   @unique
@@ -21,45 +23,68 @@ model MaintainerRepo {
   updatedAt       DateTime @updatedAt
 
   workflows MaintainerWorkflow[]
+  comments  MaintainerComment[]
 
+  @@index([userId])
   @@map("maintainer_repo")
 }
 
-model MaintainerWorkflow {
-  id                 String   @id @default(cuid())
-  issueUrl           String
-  issueNumber        Int
-  repoFullName       String
-  title              String
-  body               String
-  status             String   @default("investigating") // investigating | awaiting_approval | merged | rejected
-  state              String   @default("open")
-  author             String   @default("user")
-  rootCause          String?
-  affectedFiles      Json?
-  recommendation     String?
-  riskLevel          String?  @default("low")
-  prNumber           Int?
-  branch             String?
-  diff               String?
-  prSummary          String?
-  testLog            String?
-  testPassed         Boolean  @default(false)
-  prDecisionReasoning String?
-  executionMode      String?  @default("DIRECT")
-  prCreated          Boolean  @default(false)
-  directPr           Boolean  @default(false)
-  directPrReasoning  String?
-  trueforgeSessionId String?
-  toolCallId         String?
-  threadId           String?
-  createdAt          DateTime @default(now())
-  updatedAt          DateTime @updatedAt
+model MaintainerComment {
+  id               String          @id @default(cuid())
+  repoId           String
+  repo             MaintainerRepo  @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  issueNumber      Int?
+  githubCommentId  String          @unique
+  author           String
+  body             String
+  isPRReady        Boolean         @default(false)
+  prNumber         Int?
+  shouldNotify     Boolean         @default(false)
+  notified         Boolean         @default(false)
+  aiReasoning      String?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
-  repo   MaintainerRepo?   @relation(fields: [repoFullName], references: [fullName])
+  @@index([repoId, issueNumber])
+  @@index([shouldNotify, notified])
+  @@map("maintainer_comment")
+}
+
+model MaintainerWorkflow {
+  id                  String          @id @default(cuid())
+  repoId              String
+  repo                MaintainerRepo  @relation(fields: [repoId], references: [id], onDelete: Cascade)
+  issueUrl            String
+  issueNumber         Int
+  title               String
+  body                String
+  status              String          @default("investigating")
+  state               String          @default("open")
+  author              String          @default("user")
+  rootCause           String?
+  affectedFiles       Json?
+  recommendation      String?
+  riskLevel           String?         @default("low")
+  prNumber            Int?
+  branch              String?
+  diff                String?
+  prSummary           String?
+  testLog             String?
+  testPassed          Boolean         @default(false)
+  prDecisionReasoning String?
+  executionMode       String?         @default("DIRECT")
+  prCreated           Boolean         @default(false)
+  directPr            Boolean         @default(false)
+  directPrReasoning   String?
+  trueforgeSessionId  String?
+  toolCallId          String?
+  threadId            String?
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
+
   events MaintainerEvent[]
 
-  @@index([repoFullName])
+  @@index([repoId])
   @@map("maintainer_workflow")
 }
 
@@ -84,7 +109,7 @@ model MaintainerSettings {
   anthropicApiKey  String?
   openaiApiKey     String?
   githubToken      String?
-  selectedModel    String   @default("google/gemini-3.1-flash-lite")
+  selectedModel    String   @default("google-gemini/gemini-3-5-flash-lite")
   trueforgeBaseUrl String   @default("http://localhost:8790")
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
@@ -138,6 +163,7 @@ model User {
   subscriptions      Subscription[]
   forms              Form[]
   maintainerSettings MaintainerSettings?
+  maintainerRepos    MaintainerRepo[]
 
   @@unique([email])
   @@map("user")
