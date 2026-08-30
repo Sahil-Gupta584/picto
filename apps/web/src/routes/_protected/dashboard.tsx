@@ -38,6 +38,38 @@ function formatTs(ts: string | Date): string {
     date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
+function IssueReplyBox({ workflowId }: { workflowId: string }) {
+  const [body, setBody] = useState('');
+  const queryClient = useQueryClient();
+  const mutation = useMutation(
+    orpc.maintainer.postIssueComment.mutationOptions({
+      onSuccess: () => {
+        setBody('');
+        queryClient.invalidateQueries({ queryKey: orpc.maintainer.getSinceLastVisit.key() });
+      },
+    })
+  );
+  return (
+    <div className="border-t border-border pt-3 space-y-2">
+      <p className="text-xs font-semibold text-foreground">Reply on GitHub</p>
+      <textarea
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        placeholder="Leave a comment..."
+        rows={3}
+        className="w-full rounded-lg border border-border bg-[var(--surface-secondary)] text-sm text-foreground placeholder:text-muted px-3 py-2 resize-none focus:outline-none focus:border-[var(--accent)]"
+      />
+      <button
+        onClick={() => mutation.mutate({ workflowId, body })}
+        disabled={!body.trim() || mutation.isPending}
+        className="px-4 py-1.5 rounded-lg text-xs font-semibold bg-[var(--accent)] text-[var(--accent-foreground)] disabled:opacity-40 hover:opacity-90 transition"
+      >
+        {mutation.isPending ? 'Posting…' : 'Comment'}
+      </button>
+    </div>
+  );
+}
+
 export const Route = createFileRoute('/_protected/dashboard')({
   component: DashboardComponent,
 });
@@ -507,6 +539,7 @@ function DashboardComponent() {
                         </Card.Content>
                       </Card>
                     )}
+                    <IssueReplyBox workflowId={selectedIssue.id} />
                   </>
                 )}
                 {drawer?.kind === 'pr' && selectedPR && (
@@ -657,6 +690,7 @@ function DashboardComponent() {
                         <div className="pt-2 border-t border-border">
                           <p className="text-xs text-muted">{selectedEvent.detail}</p>
                         </div>
+                        <IssueReplyBox workflowId={linkedIssue.id} />
                       </>
                     );
                   }

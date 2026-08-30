@@ -453,6 +453,7 @@ export const getSettings = authed.handler(async ({ context }) => {
     selectedModel: resolveModelKey(settings.selectedModel),
     trueforgeBaseUrl: settings.trueforgeBaseUrl || 'http://localhost:8790',
     lastVisitAt: settings.lastVisitAt?.toISOString() ?? null,
+    discordGuildId: settings.discordGuildId || '',
   }
 })
 
@@ -473,6 +474,7 @@ export const updateSettings = authed
       githubToken: z.string().optional(),
       selectedModel: z.string().optional(),
       trueforgeBaseUrl: z.string().optional(),
+      discordGuildId: z.string().optional(),
     })
   )
   .handler(async ({ input, context }) => {
@@ -486,6 +488,7 @@ export const updateSettings = authed
         githubToken: input.githubToken,
         selectedModel: resolveModelKey(input.selectedModel),
         trueforgeBaseUrl: input.trueforgeBaseUrl || 'http://localhost:8790',
+        discordGuildId: input.discordGuildId,
       },
       update: {
         ...(input.geminiApiKey !== undefined && { geminiApiKey: input.geminiApiKey }),
@@ -494,6 +497,7 @@ export const updateSettings = authed
         ...(input.githubToken !== undefined && { githubToken: input.githubToken }),
         ...(input.selectedModel !== undefined && { selectedModel: input.selectedModel }),
         ...(input.trueforgeBaseUrl !== undefined && { trueforgeBaseUrl: input.trueforgeBaseUrl }),
+        ...(input.discordGuildId !== undefined && { discordGuildId: input.discordGuildId }),
       },
     })
 
@@ -719,6 +723,21 @@ export const rejectPR = authed
     return { success: true, pr: updated }
   })
 
+export const postIssueComment = authed
+  .input(z.object({ workflowId: z.string(), body: z.string().min(1) }))
+  .handler(async ({ input, context }) => {
+    const workflow = await prisma.maintainerWorkflow.findFirst({
+      where: { id: input.workflowId, repo: { userId: context.user.id } },
+      include: { repo: true },
+    })
+    if (!workflow) throw new Error('Workflow not found')
+    const userSettings = await getUserSettings(context.user.id)
+    const [owner, repo] = workflow.repo.fullName.split('/')
+    const ok = await githubService.addIssueComment(owner, repo, workflow.issueNumber, input.body, userSettings.githubToken || undefined)
+    if (!ok) throw new Error('Failed to post comment')
+    return { success: true }
+  })
+
 export const getLivePrDiff = authed
   .input(z.object({ repoFullName: z.string(), prNumber: z.number() }))
   .handler(async ({ input, context }) => {
@@ -742,6 +761,7 @@ export const maintainerRouter = {
   markCommentNotified,
   dismissComment,
   getLivePrDiff,
+  postIssueComment,
   getSinceLastVisit,
   getAvailableGitHubRepos,
   addRepo,
