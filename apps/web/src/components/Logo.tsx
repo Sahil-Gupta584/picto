@@ -1,11 +1,14 @@
-import { SiDuckduckgo } from 'react-icons/si'
-
 export function Logo({ size = 'md' }: { size?: 'sm' | 'md' | 'lg' }) {
-  const dims = { sm: 'text-lg', md: 'text-2xl', lg: 'text-3xl' }
+  const dims = { sm: 16, md: 24, lg: 32 }
+  const px = dims[size]
   return (
-    <span className={`flex items-center justify-center text-white ${dims[size]}`}>
-      <SiDuckduckgo />
-    </span>
+    <img
+      src="/favicon.ico"
+      alt="Picto logo"
+      width={px}
+      height={px}
+      style={{ width: px, height: px, imageRendering: 'auto' }}
+    />
   )
 }
 
