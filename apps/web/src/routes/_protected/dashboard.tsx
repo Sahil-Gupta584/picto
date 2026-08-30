@@ -26,6 +26,18 @@ import {
 } from 'react-icons/ri';
 import { GoIssueOpened, GoIssueClosed, GoGitPullRequest, GoGitPullRequestClosed, GoGitMerge } from 'react-icons/go';
 
+function formatTs(ts: string | Date): string {
+  const date = new Date(ts);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const under24h = diffMs < 24 * 60 * 60 * 1000;
+  if (under24h) {
+    return date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+  return date.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ' +
+    date.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
 export const Route = createFileRoute('/_protected/dashboard')({
   component: DashboardComponent,
 });
@@ -418,7 +430,7 @@ function DashboardComponent() {
                               <div className="mt-1.5 shrink-0 h-2.5 w-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />
                               <div className="min-w-0 flex-1">
                                 <span className="text-base font-semibold text-foreground">{evt.title}</span>
-                                <div className="text-[10px] text-muted mt-0.5">{new Date(evt.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</div>
+                                <div className="text-[10px] text-muted mt-0.5">{formatTs(evt.timestamp)}</div>
                                 <p className="text-sm text-muted line-clamp-2 mt-1.5 leading-relaxed">{evt.detail}</p>
                               </div>
                             </button>
@@ -653,7 +665,7 @@ function DashboardComponent() {
                   return (
                     <>
                       <h2 className="text-base font-semibold text-foreground">{selectedEvent.title}</h2>
-                      <div className="text-xs text-muted">{new Date(selectedEvent.timestamp).toLocaleString()}</div>
+                      <div className="text-xs text-muted">{formatTs(selectedEvent.timestamp)}</div>
                       <p className="text-sm leading-relaxed text-foreground">{selectedEvent.detail}</p>
                     </>
                   );
