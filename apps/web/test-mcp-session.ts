@@ -15,7 +15,7 @@ async function testMcpSession() {
   console.log('3. Sending turn: "List the tools available to you and confirm github + discord tools are accessible"');
   const { accumulatedText } = await trueforge.streamTurnWithAutoResume(
     session.id,
-    'List all MCP tools available to you. For each tool, say which MCP server it comes from. Confirm specifically whether you have access to github tools (like search_issues, create_issue) and discord tools (like send_discord_message, get_channel_messages). Just list them — do not call any tools.'
+    'List all MCP tools available to you. For each tool, say which MCP server it comes from. Confirm specifically whether you have access to github tools (like search_issues, create_issue) and discord tools (like send_discord_message, get_channel_messages). Just list them - do not call any tools.'
   );
 
   console.log('\n=== AGENT RESPONSE ===');

@@ -259,7 +259,7 @@ export class GitHubService {
   /**
    * Open a PR for an already-published head branch. The head branch (with its full git
    * history authored by the sandbox agent) must have been pushed beforehand via
-   * TrueForgeMaintainerService.publishSandboxBranch — this method only creates the PR.
+   * TrueForgeMaintainerService.publishSandboxBranch - this method only creates the PR.
    */
   async createPullRequestOnGitHub(
     owner: string,

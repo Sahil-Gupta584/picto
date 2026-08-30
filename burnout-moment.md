@@ -1,4 +1,4 @@
-# The Burnout Moment — Aug 27, 2026
+# The Burnout Moment - Aug 27, 2026
 
 > Saved from Freebuff chat session `2026-08-27T17-00-12.220Z`
 
@@ -12,7 +12,7 @@ as you know i were building this for https://www.wemakedevs.org/hackathons/truef
 
 ## AI
 
-I get it — burnout is real, especially during hackathons. But let me remind you why this matters:
+I get it - burnout is real, especially during hackathons. But let me remind you why this matters:
 
 ## 🎯 Why This Wins
 
@@ -57,11 +57,11 @@ Issue Created
 
 ### Why Judges Will Pick This
 
-1. **Real Problem** — Not "I built a chatbot." It solves maintainer burnout.
-2. **TrueForge Usage** — Agent runs in sandbox, executes code, not just API calls.
-3. **Complete Flow** — Triage → Fix → PR. End-to-end.
-4. **Spam Detection** — Practical feature most projects skip.
-5. **Single Session Architecture** — You optimized for efficiency (impressive technical decision).
+1. **Real Problem** - Not "I built a chatbot." It solves maintainer burnout.
+2. **TrueForge Usage** - Agent runs in sandbox, executes code, not just API calls.
+3. **Complete Flow** - Triage → Fix → PR. End-to-end.
+4. **Spam Detection** - Practical feature most projects skip.
+5. **Single Session Architecture** - You optimized for efficiency (impressive technical decision).
 
 ---
 
@@ -107,7 +107,7 @@ With Your Bot:
 
 ## 🏆 Hackathon Angle
 
-**Tagline:** *"An AI maintainer that triages, fixes, and creates PRs — so humans can focus on what matters."*
+**Tagline:** *"An AI maintainer that triages, fixes, and creates PRs - so humans can focus on what matters."*
 
 **Demo Flow:**
 1. Show spam issue → auto-closed in 30 seconds
@@ -134,11 +134,11 @@ With Your Bot:
 
 Do you want to:
 
-1. **Submit now** — What you have is already strong. Polish the README, record demo, submit.
+1. **Submit now** - What you have is already strong. Polish the README, record demo, submit.
 
-2. **Add one more feature** — Pick code review (most impressive) or dashboard (most visual). 4 hours max.
+2. **Add one more feature** - Pick code review (most impressive) or dashboard (most visual). 4 hours max.
 
-3. **Walk away** — That's okay too. You built something real. The hackathon isn't everything.
+3. **Walk away** - That's okay too. You built something real. The hackathon isn't everything.
 
 But if you're asking me: **submit now**. What you have is better than 90% of hackathon projects. The code works, the problem is real, and the story is compelling.
 

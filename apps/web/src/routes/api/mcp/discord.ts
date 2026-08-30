@@ -15,7 +15,7 @@
 
 import { createFileRoute } from '@tanstack/react-router';
 
-// --- Discord REST helpers (no discord.js needed — pure fetch) ----------------
+// --- Discord REST helpers (no discord.js needed - pure fetch) ----------------
 
 const DISCORD_API = 'https://discord.com/api/v10';
 
@@ -167,7 +167,7 @@ async function handleJsonRpc(body: any): Promise<any> {
 // --- HTTP handlers -----------------------------------------------------------
 
 async function handleGet() {
-  // SSE endpoint — sends endpoint event pointing back to this URL for POST
+  // SSE endpoint - sends endpoint event pointing back to this URL for POST
   const body = new ReadableStream({
     start(controller) {
       const encoder = new TextEncoder();

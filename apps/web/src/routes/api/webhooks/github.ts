@@ -129,7 +129,7 @@ async function handlePost({ request }: { request: Request }) {
         );
       }
 
-      // Fetch GitHub token — scoped to the repo owner (fixes cross-user credential leak)
+      // Fetch GitHub token - scoped to the repo owner (fixes cross-user credential leak)
       const userSettings = await prisma.maintainerSettings.findUnique({
         where: { userId: configuredRepo.userId },
       });
@@ -181,7 +181,7 @@ async function handlePost({ request }: { request: Request }) {
         );
       }
 
-      // 2. Fetch User Settings — scoped to the repo owner (fixes cross-user credential leak)
+      // 2. Fetch User Settings - scoped to the repo owner (fixes cross-user credential leak)
       const userSettings = await prisma.maintainerSettings.findUnique({
         where: { userId: configuredRepo.userId },
       });
@@ -241,7 +241,7 @@ async function handlePost({ request }: { request: Request }) {
 
       const isFromMaintainer = commentAuthor.toLowerCase() === payload.repository.owner.login.toLowerCase();
 
-      // If from maintainer, skip entirely — no store, no notify
+      // If from maintainer, skip entirely - no store, no notify
       if (isFromMaintainer) {
         return new Response(JSON.stringify({ status: "ignored", reason: "maintainer" }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
@@ -271,7 +271,7 @@ async function handlePost({ request }: { request: Request }) {
           // Post acknowledgement comment
           await githubService.addIssueComment(
             owner, repoName, contextNumber!,
-            `🤖 **@${commentAuthor}** — got it, I'm on it...`,
+            `🤖 **@${commentAuthor}** - got it, I'm on it...`,
             githubToken
           );
 
@@ -281,7 +281,7 @@ async function handlePost({ request }: { request: Request }) {
 
           const turnPrompt = `The user @${commentAuthor} is asking you via a GitHub comment:\n\n> ${userPrompt}\n\nRespond helpfully and concisely. If you need to make code changes, do so in the sandbox. Post your response as a GitHub comment on issue #${contextNumber}.`;
 
-          // Fire and forget — don't block the webhook response
+          // Fire and forget - don't block the webhook response
           trueforge.streamTurnWithAutoResume(workflow.trueforgeSessionId, turnPrompt)
             .then(async ({ accumulatedText }) => {
               if (accumulatedText) {
@@ -298,7 +298,7 @@ async function handlePost({ request }: { request: Request }) {
             status: 200, headers: { "Content-Type": "application/json" },
           });
         } else {
-          // No active session — notify user
+          // No active session - notify user
           const contextN = contextNumber;
           if (contextN) {
             const userSettings = await prisma.maintainerSettings.findUnique({
@@ -308,7 +308,7 @@ async function handlePost({ request }: { request: Request }) {
             const [owner, repoName] = repoFullName.split('/');
             await githubService.addIssueComment(
               owner, repoName, contextN,
-              `🤖 **@${commentAuthor}** — I don't have an active session for this issue yet. Open a new issue or reopen this one to start an investigation.`,
+              `🤖 **@${commentAuthor}** - I don't have an active session for this issue yet. Open a new issue or reopen this one to start an investigation.`,
               githubToken
             );
           }

@@ -17,7 +17,7 @@ export const getSubscription = authed
     return sub ?? null
   })
 
-// Get all plans (for pricing display — no product IDs needed client-side)
+// Get all plans (for pricing display - no product IDs needed client-side)
 export const getPlans = base
   .input(z.void())
   .handler(async () => {

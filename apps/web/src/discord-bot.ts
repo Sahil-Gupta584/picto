@@ -1,5 +1,5 @@
 /**
- * discord-bot.ts — Persistent Discord Gateway bot
+ * discord-bot.ts - Persistent Discord Gateway bot
  *
  * Runs as a separate process alongside the Picto web server:
  *   npx tsx apps/web/src/discord-bot.ts
@@ -8,9 +8,9 @@
  * and forwards them to /api/discord/message for processing.
  *
  * Environment variables needed (same .env as the web app):
- *   DISCORD_BOT_TOKEN  — Bot token from Discord Developer Portal
- *   PICTO_API_URL      — URL of the running Picto server (default: http://localhost:5173)
- *   DISCORD_API_SECRET — Shared secret to authenticate bot → API calls
+ *   DISCORD_BOT_TOKEN  - Bot token from Discord Developer Portal
+ *   PICTO_API_URL      - URL of the running Picto server (default: http://localhost:5173)
+ *   DISCORD_API_SECRET - Shared secret to authenticate bot → API calls
  */
 
 import { Client, Events, GatewayIntentBits, Message } from 'discord.js';
@@ -43,7 +43,7 @@ const client = new Client({
 });
 
 client.once(Events.ClientReady, (c) => {
-  console.log(`🤖 Picto Discord bot ready — logged in as ${c.user.tag}`);
+  console.log(`🤖 Picto Discord bot ready - logged in as ${c.user.tag}`);
   console.log(`📡 Forwarding all @Picto mentions to: ${PICTO_API_URL}/api/discord/message`);
 });
 
@@ -99,8 +99,8 @@ client.on(Events.MessageCreate, async (message: Message) => {
       return;
     }
 
-    // Success — agent is processing, will reply via Discord MCP send_discord_message tool
-    // No need to reply here — the agent will send the message itself
+    // Success - agent is processing, will reply via Discord MCP send_discord_message tool
+    // No need to reply here - the agent will send the message itself
     console.log(`✅ Forwarded message: ${content} from @${message.author.username} in guild ${message.guildId}, session: ${data.sessionId}`);
   } catch (err: any) {
     console.error('❌ Failed to forward to Picto API:', err.message);

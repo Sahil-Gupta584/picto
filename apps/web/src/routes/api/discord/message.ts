@@ -2,7 +2,7 @@
  * POST /api/discord/message
  *
  * Called by the discord-bot.ts process when @Picto is mentioned in a guild.
- * This is a stateless serverless handler — all intelligence lives here.
+ * This is a stateless serverless handler - all intelligence lives here.
  *
  * Flow:
  * 1. Validate DISCORD_API_SECRET header
@@ -100,7 +100,7 @@ async function handlePost({ request }: { request: Request }) {
       });
     }
 
-    // Build the turn prompt — agent uses GitHub MCP tools, we post its reply to Discord via REST
+    // Build the turn prompt - agent uses GitHub MCP tools, we post its reply to Discord via REST
     const turnPrompt = `User @${authorUsername} sent this message in Discord channel ${channelId}:
 
 > ${content}
@@ -108,7 +108,7 @@ async function handlePost({ request }: { request: Request }) {
 Use your GitHub MCP tools to fetch any relevant data needed to answer.
 Then answer directly in plain text. Your response will be forwarded to Discord automatically.`;
 
-    // Fire turn — non-blocking, post agent's text reply to Discord via REST ourselves
+    // Fire turn - non-blocking, post agent's text reply to Discord via REST ourselves
     trueforge.streamTurnWithAutoResume(sessionId, turnPrompt)
       .then(async ({ accumulatedText }) => {
         const reply = accumulatedText?.trim();

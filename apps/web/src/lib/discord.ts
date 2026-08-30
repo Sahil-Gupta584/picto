@@ -67,7 +67,7 @@ function parseCommand(text: string): ParsedCommand {
     };
   }
 
-  // fallback — treat as a free-form question
+  // fallback - treat as a free-form question
   // try to extract repo if mentioned
   const repoMatch = t.match(/([\w.-]+\/[\w.-]+)/);
   return { action: 'ask', repo: repoMatch?.[1] ?? null, question: t };
@@ -93,7 +93,7 @@ async function handleListIssues(repo: string, token?: string): Promise<string> {
     });
     if (!data.length) return `No open issues in **${repo}**.`;
     return `**Open issues in ${repo}:**\n` + data.map((i: any) =>
-      `• #${i.number} — ${i.title} (by @${i.user?.login})`
+      `• #${i.number} - ${i.title} (by @${i.user?.login})`
     ).join('\n');
   } catch (err: any) {
     return `❌ Failed to list issues: ${err?.message}`;
@@ -109,7 +109,7 @@ async function handleListPRs(repo: string, token?: string): Promise<string> {
     });
     if (!data.length) return `No open PRs in **${repo}**.`;
     return `**Open PRs in ${repo}:**\n` + data.map((p: any) =>
-      `• #${p.number} — ${p.title} (by @${p.user?.login})`
+      `• #${p.number} - ${p.title} (by @${p.user?.login})`
     ).join('\n');
   } catch (err: any) {
     return `❌ Failed to list PRs: ${err?.message}`;
@@ -122,7 +122,7 @@ async function handleViewIssue(repo: string, number: number, token?: string): Pr
     const issue = await githubService.getIssue(owner, repoName, number);
     const body = issue.body?.slice(0, 400) || '_No description_';
     return [
-      `**${issue.title}** — #${number} (${issue.state})`,
+      `**${issue.title}** - #${number} (${issue.state})`,
       `> ${body.replace(/\n/g, '\n> ')}`,
       `🔗 ${issue.html_url}`,
     ].join('\n');
@@ -137,7 +137,7 @@ async function handleViewPR(repo: string, number: number, token?: string): Promi
     const pr = await githubService.getPullRequest(owner, repoName, number);
     if (!pr) return `❌ PR #${number} not found in ${repo}.`;
     return [
-      `**${pr.title}** — PR #${number} (${pr.state})`,
+      `**${pr.title}** - PR #${number} (${pr.state})`,
       `Branch: \`${pr.head?.ref}\` → \`${pr.base?.ref}\``,
       `By @${pr.user?.login} · +${pr.additions} -${pr.deletions}`,
       `🔗 ${pr.html_url}`,
@@ -154,7 +154,7 @@ async function handleCreateIssue(repo: string, title: string, body: string, toke
     const { data } = await octokit.rest.issues.create({
       owner, repo: repoName, title, body,
     });
-    return `✅ Created issue **#${data.number}** — ${data.title}\n🔗 ${data.html_url}`;
+    return `✅ Created issue **#${data.number}** - ${data.title}\n🔗 ${data.html_url}`;
   } catch (err: any) {
     return `❌ Failed to create issue: ${err?.message}`;
   }
@@ -201,7 +201,7 @@ async function handleAsk(repo: string | null, question: string): Promise<string>
 async function onMessage(message: Message): Promise<void> {
   if (message.author.bot) return;
 
-  // Check for @picto mention — either as text prefix or Discord mention of the bot
+  // Check for @picto mention - either as text prefix or Discord mention of the bot
   const botId = message.client.user?.id;
   const isMentioned = botId
     ? message.mentions.users.has(botId)
@@ -252,7 +252,7 @@ let client: Client | null = null;
 export function startDiscordBot(): void {
   const token = process.env.DISCORD_BOT_TOKEN;
   if (!token) {
-    console.log('ℹ️  DISCORD_BOT_TOKEN not set — Discord bot disabled.');
+    console.log('ℹ️  DISCORD_BOT_TOKEN not set - Discord bot disabled.');
     return;
   }
 
@@ -266,7 +266,7 @@ export function startDiscordBot(): void {
   });
 
   client.once(Events.ClientReady, (c) => {
-    console.log(`🤖 Discord bot ready — logged in as ${c.user.tag}`);
+    console.log(`🤖 Discord bot ready - logged in as ${c.user.tag}`);
   });
 
   client.on(Events.MessageCreate, (msg) => {

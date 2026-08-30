@@ -66,7 +66,7 @@ function LandingPage() {
           </a>
         </div>
 
-        {/* Hero visual — pipeline diagram */}
+        {/* Hero visual - pipeline diagram */}
         <div className="mt-16 rounded-xl border overflow-hidden" style={{ borderColor: 'rgba(61,68,77,0.7)', background: '#0d1117' }}>
           <div className="flex items-center gap-2 px-4 py-2.5 border-b text-xs font-mono text-[#9198a1]" style={{ borderColor: 'rgba(61,68,77,0.7)' }}>
             <span className="h-2.5 w-2.5 rounded-full bg-[#f85149]" />
@@ -96,7 +96,7 @@ function LandingPage() {
       <section className="mx-auto max-w-6xl px-4 sm:px-6 py-20 border-t" style={{ borderColor: 'rgba(61,68,77,0.3)' }}>
         <div className="text-center mb-14">
           <h2 className="text-3xl font-bold text-white mb-3">Built on TrueForge harness</h2>
-          <p className="text-[#9198a1] max-w-md mx-auto text-sm">The harness does the hard work — sandbox execution, MCP tool access, human checkpoint gates.</p>
+          <p className="text-[#9198a1] max-w-md mx-auto text-sm">The harness does the hard work - sandbox execution, MCP tool access, human checkpoint gates.</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -105,7 +105,7 @@ function LandingPage() {
               icon: <RiRobot2Line className="text-2xl" />,
               color: '#8dd6ff',
               title: 'GitHub MCP tools',
-              desc: 'Agent reads your codebase, CONTRIBUTING.md, PR templates, and existing issues — through the real GitHub MCP server, not a mock.',
+              desc: 'Agent reads your codebase, CONTRIBUTING.md, PR templates, and existing issues - through the real GitHub MCP server, not a mock.',
             },
             {
               icon: <RiCodeSSlashLine className="text-2xl" />,
@@ -117,7 +117,7 @@ function LandingPage() {
               icon: <RiShieldCheckLine className="text-2xl" />,
               color: '#3fb950',
               title: 'Human checkpoint',
-              desc: 'The agent pauses at merge. You see the diff, sandbox test logs, and risk level. One click to approve or reject — nothing merges without you.',
+              desc: 'The agent pauses at merge. You see the diff, sandbox test logs, and risk level. One click to approve or reject - nothing merges without you.',
             },
             {
               icon: <RiTimeLine className="text-2xl" />,
@@ -171,7 +171,7 @@ function LandingPage() {
             {
               num: '3',
               title: 'Human checkpoint → approve or reject',
-              desc: 'Dashboard shows diff, sandbox test log, and risk level. Harness pauses at merge_pull_request tool. You click Approve & Merge — harness completes.',
+              desc: 'Dashboard shows diff, sandbox test log, and risk level. Harness pauses at merge_pull_request tool. You click Approve & Merge - harness completes.',
               color: '#3fb950',
             },
           ].map((step, i) => (
@@ -195,7 +195,7 @@ function LandingPage() {
             <Logo size="lg" />
           </div>
           <h2 className="text-3xl font-bold text-white mb-3">Give your repo a maintainer</h2>
-          <p className="text-[#9198a1] mb-8 text-sm max-w-sm mx-auto leading-relaxed">Connect a GitHub repo in under 2 minutes. Picto handles triage, fixes, and PRs — you stay in control.</p>
+          <p className="text-[#9198a1] mb-8 text-sm max-w-sm mx-auto leading-relaxed">Connect a GitHub repo in under 2 minutes. Picto handles triage, fixes, and PRs - you stay in control.</p>
           <Button onClick={() => navigate({ to: '/login' })} className="h-10 px-8 text-sm font-semibold">
             Get started free <RiArrowRightLine className="ml-1" />
           </Button>

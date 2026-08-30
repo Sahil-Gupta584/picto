@@ -1,4 +1,4 @@
-# AGENTS.md — Autonomous Maintainer Codebase Instructions
+# AGENTS.md - Autonomous Maintainer Codebase Instructions
 
 ## Overview
 Autonomous GitHub Repository Maintainer built with **TanStack Start**, **oRPC**, **Prisma 7**, and **TrueForge Agent Harness** (`@truefoundry/trueforge-sdk`).
@@ -43,7 +43,7 @@ Autonomous GitHub Repository Maintainer built with **TanStack Start**, **oRPC**,
 
 ## Key Commands
 
-- `npm run dev` — Start development workspace
-- `npx tsr generate` — Regenerate TanStack Router route tree
-- `cd apps/web && npx prisma generate` — Regenerate Prisma client
-- `cd apps/web && npx prisma migrate deploy` — Deploy named Prisma migrations to PostgreSQL database
+- `npm run dev` - Start development workspace
+- `npx tsr generate` - Regenerate TanStack Router route tree
+- `cd apps/web && npx prisma generate` - Regenerate Prisma client
+- `cd apps/web && npx prisma migrate deploy` - Deploy named Prisma migrations to PostgreSQL database

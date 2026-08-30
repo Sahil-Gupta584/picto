@@ -12,7 +12,7 @@
 
 ---
 
-Picto runs your repo maintenance so you don't have to. When an issue is opened, a TrueForge agent reads the codebase, edits code in an isolated sandbox, runs tests, and opens a pull request. Then it stops — and waits for you.
+Picto runs your repo maintenance so you don't have to. When an issue is opened, a TrueForge agent reads the codebase, edits code in an isolated sandbox, runs tests, and opens a pull request. Then it stops - and waits for you.
 
 ---
 
@@ -37,7 +37,7 @@ Supervisor agent triages
     PR opened on GitHub
           │
           ▼
-    ⏸  Harness pauses — require_approval_for_tools: ["merge_pull_request"]
+    ⏸  Harness pauses - require_approval_for_tools: ["merge_pull_request"]
           │
           ▼
     You review diff + test logs in dashboard → Approve & Merge
@@ -88,9 +88,9 @@ npm run dev
 
 Three things the harness does that a plain LLM call cannot:
 
-- **Real tools** — GitHub MCP server. Agent calls `search_issues`, reads `PULL_REQUEST_TEMPLATE.md`, `CONTRIBUTING.md`, creates PRs — all through the harness, not mocked.
-- **Safe execution** — `config.sandbox.enabled = true`. Every file edit and test run happens inside a Daytona VM. The host is never touched.
-- **Human checkpoint** — `require_approval_for_tools: ["merge_pull_request"]`. The agent physically cannot merge without a human pressing Approve in the dashboard. Not a UI toggle — a harness-level gate.
+- **Real tools** - GitHub MCP server. Agent calls `search_issues`, reads `PULL_REQUEST_TEMPLATE.md`, `CONTRIBUTING.md`, creates PRs - all through the harness, not mocked.
+- **Safe execution** - `config.sandbox.enabled = true`. Every file edit and test run happens inside a Daytona VM. The host is never touched.
+- **Human checkpoint** - `require_approval_for_tools: ["merge_pull_request"]`. The agent physically cannot merge without a human pressing Approve in the dashboard. Not a UI toggle - a harness-level gate.
 
 ---
 
@@ -98,8 +98,8 @@ Three things the harness does that a plain LLM call cannot:
 
 Two tabs:
 
-- **Logs** — accordion of new issues, new PRs, and Picto's Activity (live-polls every 3s during active runs). Click any row to open a drawer with full issue/PR detail, diff, test results, reply box, and close button.
-- **Needs Attention** — clarification requests and PR approval queue. One-click approve or close.
+- **Logs** - accordion of new issues, new PRs, and Picto's Activity (live-polls every 3s during active runs). Click any row to open a drawer with full issue/PR detail, diff, test results, reply box, and close button.
+- **Needs Attention** - clarification requests and PR approval queue. One-click approve or close.
 
 ---
 
@@ -107,15 +107,15 @@ Two tabs:
 
 Every substantive change ships through a PR reviewed by Qodo before merge.
 
-**Representative PR:** [fix: correct rebrand Picot → Picto (#2)](https://github.com/Sahil-Gupta584/picto/pull/2) — 2 Qodo bot comments, merged via squash.
+**Representative PR:** [fix: correct rebrand Picot → Picto (#2)](https://github.com/Sahil-Gupta584/picto/pull/2) - 2 Qodo bot comments, merged via squash.
 
-**Security finding caught on [PR #7](https://github.com/Sahil-Gupta584/picto/pull/7):** Qodo flagged a **High** — webhook handler loaded credentials with `maintainerSettings.findFirst()` instead of scoping by the repo owner's `userId`. Fixed: every agent session and GitHub operation now uses exclusively the token of the user who connected that repository.
+**Security finding caught on [PR #7](https://github.com/Sahil-Gupta584/picto/pull/7):** Qodo flagged a **High** - webhook handler loaded credentials with `maintainerSettings.findFirst()` instead of scoping by the repo owner's `userId`. Fixed: every agent session and GitHub operation now uses exclusively the token of the user who connected that repository.
 
 ---
 
 ## Hackathon
 
-**WeMakeDevs Agent Harness Hackathon — TrueForge** · Aug 24–30 2026  
+**WeMakeDevs Agent Harness Hackathon - TrueForge** · Aug 24–30 2026  
 Tracks: Best Use of TrueForge · Best Code Quality · Best UI
 
 ---

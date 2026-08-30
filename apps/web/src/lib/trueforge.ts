@@ -91,14 +91,14 @@ export class TrueForgeMaintainerService {
       await this.client.settings.mcpServers.createOrUpdate({
         manifest: {
           name: 'discord' as any,
-          description: 'Discord bot — send and read messages',
+          description: 'Discord bot - send and read messages',
           type: 'remote' as any,
           url: mcpUrl,
         },
       });
       console.log(`✅ MCP server 'discord' registered at ${mcpUrl}`);
     } catch (err: any) {
-      // Already exists or harness unreachable — not fatal
+      // Already exists or harness unreachable - not fatal
       console.warn('ensureMcpServersRegistered note:', err?.message || err);
     }
   }
@@ -125,7 +125,7 @@ export class TrueForgeMaintainerService {
     throw new Error('No valid JSON found in triage response');
   }
 
-  /** Handle REJECT decision — close issue with reasoning */
+  /** Handle REJECT decision - close issue with reasoning */
   private async handleReject(
     params: { issueNumber: number; repoFullName: string; githubToken?: string },
     decision: TriageDecision,
@@ -165,7 +165,7 @@ export class TrueForgeMaintainerService {
     });
   }
 
-  /** Handle CLARIFY decision — comment on issue */
+  /** Handle CLARIFY decision - comment on issue */
   private async handleClarify(
     params: { issueNumber: number; repoFullName: string; githubToken?: string },
     decision: TriageDecision,
@@ -226,7 +226,7 @@ export class TrueForgeMaintainerService {
         await new Promise((r) => setTimeout(r, 1000));
       }
 
-      // Send the setup turn — the agent's exec tool runs inside bwrap, so clone is visible
+      // Send the setup turn - the agent's exec tool runs inside bwrap, so clone is visible
       const stream = await this.client.sessions.createTurnStream(params.sessionId, {
         input: [{ type: 'user.message', content: setupPrompt }],
       });
@@ -252,7 +252,7 @@ export class TrueForgeMaintainerService {
 
   /**
    * Base directory of a session's sandbox (the TrueForge server creates one subdir per run
-   * inside it, and the repo is cloned somewhere under that — probed dynamically per call).
+   * inside it, and the repo is cloned somewhere under that - probed dynamically per call).
    */
   private getSandboxBaseDir(sessionId: string): { baseDir: string; isWindows: boolean } {
     const isWindows = process.platform === 'win32';
@@ -329,9 +329,9 @@ if git rev-parse -q --verify "refs/remotes/origin/$B" >/dev/null 2>&1; then UP="
    *  2. Ensures HEAD sits on a branch following our fix/issue-N-slug convention.
    *  3. Picks a unique remote branch name (-2, -3 … if occupied) unless the exact same
    *     commit is already there (idempotent re-publish).
-   *  4. Pushes by URL with the token injected just-in-time — the repo's origin remote is never mutated.
+   *  4. Pushes by URL with the token injected just-in-time - the repo's origin remote is never mutated.
    *
-   * The agent's own git history IS what lands on GitHub — no file scraping or blob re-committing.
+   * The agent's own git history IS what lands on GitHub - no file scraping or blob re-committing.
    */
   async publishSandboxBranch(params: {
     sessionId: string;
@@ -361,7 +361,7 @@ echo "@msg=$LASTMSG"`
       const lastMsg = checkOut.match(/@msg=(.*)/)?.[1]?.trim() || '';
 
       if (ahead === 0) {
-        return { ok: false, error: 'No commits ahead of origin — nothing to push.' };
+        return { ok: false, error: 'No commits ahead of origin - nothing to push.' };
       }
 
       // 2. Push HEAD to the branch
@@ -568,11 +568,11 @@ ${triage.assignee ? `- **Assigned To**: @${triage.assignee}` : ''}
       sessionId = session.id;
       await prisma.maintainerWorkflow.update({ where: { id: workflow.id }, data: { trueforgeSessionId: sessionId } });
 
-      // Turn 1: Setup — clone repo + write issue.md
+      // Turn 1: Setup - clone repo + write issue.md
       const issueContent = `# GitHub Issue #${params.issueNumber}\n\n**Repository**: ${params.repoFullName}\n**Title**: ${params.title}\n**Author**: ${params.author}\n\n## Description\n${params.body}`;
       await this.prepareSandbox({ repoFullName: params.repoFullName, sessionId, token: params.githubToken, issueFileContent: issueContent });
 
-      // Turn 2: Supervisor Triage — classify ONLY, do NOT implement
+      // Turn 2: Supervisor Triage - classify ONLY, do NOT implement
       const supervisorPrompt = buildSupervisorPrompt(params.repoFullName);
       console.log(`⏳ [AI Orchestrator] Running supervisor triage...`);
       let triageResponse = '';
@@ -625,7 +625,7 @@ ${triage.assignee ? `- **Assigned To**: @${triage.assignee}` : ''}
       plan: decision.plan,
     });
 
-    console.log(`⏳ [AI Orchestrator] Sending delegation turn — harness will spawn subagent...`);
+    console.log(`⏳ [AI Orchestrator] Sending delegation turn - harness will spawn subagent...`);
     this.streamTurnWithAutoResume(sessionId, delegationPrompt, (event) => {
       if (event.type === 'tool.call' && (event as any).name === 'create_sub_agent') {
         console.log(`🤖 [AI Orchestrator] Subagent spawned for Issue #${params.issueNumber}`);
@@ -639,7 +639,7 @@ ${triage.assignee ? `- **Assigned To**: @${triage.assignee}` : ''}
         }).catch(() => {});
       }
     }).then(() => {
-      console.log('✅ [AI Orchestrator] Delegation turn completed — subagent finished');
+      console.log('✅ [AI Orchestrator] Delegation turn completed - subagent finished');
       this.consumeDeveloperAgentSession(sessionId, '', workflow.id);
     }).catch((err) => console.error('❌ [AI Orchestrator] Delegation error:', err?.message || err));
 
@@ -659,7 +659,7 @@ ${triage.assignee ? `- **Assigned To**: @${triage.assignee}` : ''}
         params: { max_tokens: 4096, temperature: 0.1 },
       },
       instructions: options?.instructions || `You are an Autonomous GitHub Repository Maintainer.
-Your goal is to inspect reported GitHub issues, investigate the codebase, apply bug fixes or features, and verify with test execution. Commit your work locally on a git branch — the Maintainer service publishes branches, opens Pull Requests, and requests Maintainer approval before merging.
+Your goal is to inspect reported GitHub issues, investigate the codebase, apply bug fixes or features, and verify with test execution. Commit your work locally on a git branch - the Maintainer service publishes branches, opens Pull Requests, and requests Maintainer approval before merging.
 
 Follow these strict maintainer workflow rules:
 1. Always analyze root causes thoroughly and provide a structured investigation summary.
@@ -673,7 +673,7 @@ Follow these strict maintainer workflow rules:
   /**
    * Create a long-lived Discord bot session with GitHub + optional Discord MCP.
    * Discord MCP is only included if the server has been registered in TrueForge UI
-   * at http://localhost:5173/api/mcp/discord — otherwise we fall back to github-only
+   * at http://localhost:5173/api/mcp/discord - otherwise we fall back to github-only
    * and reply to Discord via direct REST.
    */
   async createDiscordBotSession(repoFullName: string, options: {
@@ -737,7 +737,7 @@ Description: ${issueDetails.body}
 
 Step 1: Read affected files and reproduce/analyze the bug.
 Step 2: Propose the fix and write detailed root cause analysis.
-Step 3: Create a git branch locally and commit the changes. Do NOT push or open Pull Requests — the Maintainer service publishes branches and opens PRs.
+Step 3: Create a git branch locally and commit the changes. Do NOT push or open Pull Requests - the Maintainer service publishes branches and opens PRs.
 Step 4: Execute test suite and report results.
 Step 5: Request maintainer approval before final merge!`;
 
@@ -1073,7 +1073,7 @@ git diff "$UP..HEAD"`
               type: 'sub_agent_completed',
               title: prCreated
                 ? `Raised PR #${prNumber} for issue #${workflow?.issueNumber}`
-                : `Sub-agent finished — awaiting PR publish`,
+                : `Sub-agent finished - awaiting PR publish`,
               detail: prCreated
                 ? `Sub-agent finished; its git history was published to GitHub as PR #${prNumber}.`
                 : `Sub-agent finished. Human approval required before publishing a PR.${publishNote ? ` Note: ${publishNote}` : ''}`,

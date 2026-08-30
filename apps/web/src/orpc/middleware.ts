@@ -7,10 +7,10 @@ export interface ORPCContext {
   headers: Headers | Record<string, string>
 }
 
-// Base procedure — sets up the request context. Use for public procedures.
+// Base procedure - sets up the request context. Use for public procedures.
 export const base = os.$context<ORPCContext>()
 
-// Authed procedure — resolves the current user from the request session and
+// Authed procedure - resolves the current user from the request session and
 // injects it into the context. Use for any procedure that needs a logged-in user.
 export const authed = base.use(async ({ context, next }) => {
   const headers = getRequestHeaders()
