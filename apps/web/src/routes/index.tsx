@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { Button } from '#/components/Button';
-import { SiDuckduckgo, SiGithub } from 'react-icons/si';
+import { LogoWithName, Logo } from '#/components/Logo';
+import { SiGithub } from 'react-icons/si';
 import {
   RiArrowRightLine,
   RiShieldCheckLine,
@@ -28,10 +29,7 @@ function LandingPage() {
       <nav style={{ borderBottom: '1px solid rgba(61,68,77,0.7)', background: '#0d1117' }} className="sticky top-0 z-40 backdrop-blur-md px-4 sm:px-6">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between">
           <span className="flex items-center gap-2 cursor-pointer" onClick={() => navigate({ to: '/' })}>
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#f59e0b] to-[#ea580c] text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]">
-              <SiDuckduckgo className="text-sm" />
-            </span>
-            <span className="text-sm font-semibold text-white">Picto</span>
+            <LogoWithName />
           </span>
           <div className="flex items-center gap-3">
             <a href="https://github.com/Sahil-Gupta584/picto" target="_blank" rel="noreferrer" className="text-[var(--muted)] hover:text-white transition flex items-center gap-1.5 text-xs">
@@ -194,7 +192,7 @@ function LandingPage() {
       <section className="mx-auto max-w-3xl px-4 sm:px-6 py-20 border-t text-center" style={{ borderColor: 'rgba(61,68,77,0.3)' }}>
         <div className="rounded-2xl p-10" style={{ background: '#0d1117', border: '1px solid rgba(61,68,77,0.7)' }}>
           <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-[#f59e0b] to-[#ea580c] text-white mx-auto mb-5 shadow-[0_0_20px_rgba(245,158,11,0.3)]">
-            <SiDuckduckgo className="text-xl" />
+            <Logo size="lg" />
           </div>
           <h2 className="text-3xl font-bold text-white mb-3">Give your repo a maintainer</h2>
           <p className="text-[#9198a1] mb-8 text-sm max-w-sm mx-auto leading-relaxed">Connect a GitHub repo in under 2 minutes. Picto handles triage, fixes, and PRs — you stay in control.</p>
@@ -208,9 +206,7 @@ function LandingPage() {
       <footer className="border-t px-4 sm:px-6 py-8" style={{ borderColor: 'rgba(61,68,77,0.3)' }}>
         <div className="mx-auto max-w-6xl flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-[#9198a1]">
           <div className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded bg-gradient-to-br from-[#f59e0b] to-[#ea580c] text-white">
-              <SiDuckduckgo className="text-[10px]" />
-            </span>
+            <Logo size="sm" />
             <span>Picto · Built for WeMakeDevs × TrueForge Hackathon 2026</span>
           </div>
           <div className="flex items-center gap-4">

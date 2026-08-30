@@ -10,10 +10,10 @@ import {
   RiSettings4Line,
   RiDashboardLine,
 } from 'react-icons/ri'
-import { SiDuckduckgo } from 'react-icons/si'
 import { authClient } from '#/lib/auth-client'
 import { getSession } from '#/lib/session'
 import { Select, SelectItem, Separator } from '#/components/Select'
+import { LogoWithName } from '#/components/Logo'
 
 export const Route = createFileRoute('/_protected')({
   beforeLoad: async () => {
@@ -45,17 +45,10 @@ function ProtectedLayout() {
             className="flex items-center gap-2.5 cursor-pointer select-none group"
             onClick={() => router.navigate({ to: '/dashboard' })}
           >
-            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-[#f59e0b] to-[#ea580c] text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]">
-              <SiDuckduckgo className="text-sm" />
+            <LogoWithName />
+            <span className="text-[10px] font-mono text-[var(--muted)] bg-[var(--surface-secondary)] border border-[var(--border)] px-1.5 py-0.5 rounded">
+              studio
             </span>
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold tracking-tight text-[var(--foreground)] group-hover:opacity-80 transition">
-                Picto
-              </span>
-              <span className="text-[10px] font-mono text-[var(--muted)] bg-[var(--surface-secondary)] border border-[var(--border)] px-1.5 py-0.5 rounded">
-                studio
-              </span>
-            </div>
           </span>
 
           <div className="flex items-center gap-2">

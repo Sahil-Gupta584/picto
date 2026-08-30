@@ -5,7 +5,7 @@ import { authClient } from '#/lib/auth-client'
 import { Button } from '#/components/Button'
 import { Input } from '#/components/Input'
 import { RiGoogleFill, RiArrowLeftLine, RiMailSendLine } from 'react-icons/ri'
-import { SiDuckduckgo } from 'react-icons/si'
+import { LogoWithName } from '#/components/Logo'
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -57,17 +57,10 @@ function LoginPage() {
           </Link>
 
           <div className="flex items-center gap-2 mt-1">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#f59e0b] to-[#ea580c] text-white shadow-[0_0_12px_rgba(245,158,11,0.4)]">
-              <SiDuckduckgo className="text-base" />
+            <LogoWithName size="lg" />
+            <span className="text-[10px] font-mono text-[var(--muted)] bg-[var(--surface-secondary)] border border-[var(--border)] px-1.5 py-0.5 rounded">
+              auth
             </span>
-            <div className="flex items-center gap-1.5">
-              <span className="text-base font-bold tracking-tight text-[var(--foreground)]">
-                Picto
-              </span>
-              <span className="text-[10px] font-mono text-[var(--muted)] bg-[var(--surface-secondary)] border border-[var(--border)] px-1.5 py-0.5 rounded">
-                auth
-              </span>
-            </div>
           </div>
 
           <h2 className="mt-3 text-sm font-semibold tracking-tight text-[var(--foreground)]">
